@@ -1,0 +1,49 @@
+
+
+Type StringTokenizer
+Field token$
+Field position
+Field amount
+End Type
+
+Global dataline.StringTokenizer = New StringTokenizer
+
+codeline$ = "INT a,b,hello"
+
+WaitKey()
+
+For ctr = 1 To CountToken(codeline$)
+NextToken(codeline$)
+Print dataline\token$
+Next
+
+WaitKey()
+End
+
+
+
+; This function works after ParseLine but enables to continue parsing the sentence 
+; and storing a single word everytime the function is called
+Function NextToken(handles$)
+ container$ = ""
+ For ctr = 1 To Len(handles$)
+  pointer$ = Mid$(handles$,ctr,1)
+  If pointer = " " Or pointer = "," Goto delim  	
+  If delimiterCount = dataline\position Then container$ = container$ + pointer$ 
+  .delim
+  If pointer = " " Or pointer = "," Then delimiterCount = delimiterCount + 1 
+
+ Next 
+ dataline\token$ = container$
+ dataline\position = dataline\position + 1
+End Function
+
+; Counts how many tokens are there in a string sentence
+Function CountToken(handles$)
+ For ctr = 1 To Len(handles$)
+  pointer$ = Mid$(handles$,ctr,1)
+  If pointer = " " Or pointer = "," Then delimiterCount = delimiterCount + 1 
+ Next 
+ dataline\amount = delimiterCount + 1
+ Return delimiterCount + 1
+End Function 

@@ -1,0 +1,233 @@
+Graphics3D 1024,768,32,2
+;Include "constants.bb"
+;Include "globals.bb"
+;Include "mouseevents.bb"
+;Include "viewport.bb"
+SetBuffer BackBuffer()
+
+Global gfxH=GraphicsHeight(),gfxW=GraphicsWidth()
+Global font=LoadFont("Microsoft Sans Serif",12,True)
+Global arrow=LoadImage("arrow.png")
+SetFont font 
+Global dropMenuBool,menuValue
+Global capMouseX,capMouseY
+Global btnCreate,btnAdd,btnDelete
+camera=CreateCamera()
+CameraViewport camera,2,17,1020,512
+
+;LoadSplash()
+
+Reset()
+While Not KeyHit(1)
+	DetectKey()
+	Render()
+Wend
+End
+
+Function RenderGui()
+	Color 182,182,182
+	Rect 0,0,gfxW,17,1; top box
+	Rect 0,0,2,gfxH,1 ;left borderline
+	Rect gfxW-2,0,2,gfxH,1 ;right borderline
+	Rect 0,gfxH/2+143,gfxW,gfxH-gfxH/2+143,1 ;bottom panel
+	
+	
+End Function
+
+Function Reset()
+	gfxH=GraphicsHeight():gfxW=GraphicsWidth()
+End Function
+
+Function DetectKey()
+	If KeyHit(59)=True Graphics3D 1024,768,32,1:Reset
+	If KeyHit(60)=True Graphics3D 800,600,32,1:Reset
+	If KeyHit(61)=True Graphics3D 640,480,32,1:Reset
+End Function
+
+Function LoadSplash()
+	splash=LoadImage("splash.png")
+	MidHandle splash
+	DrawImage splash,GraphicsWidth()/2,GraphicsHeight()/2
+	Flip
+	Delay 4000
+	FreeImage splash
+End Function 
+
+Function Render2D()
+	ActionEvent
+	MouseEvent
+	btnCreate=DrawButton(32,39,4,1,"Create")
+	btnAdd=DrawButton(32,41,4,1,"Add")
+	btnDelete=DrawButton(32,43,4,1,"Delete")
+	DrawInputBox(32,37,4)
+	DrawImage arrow,MouseX(),MouseY() 
+End Function
+
+Function RenderText()
+	Color 225,255,255
+	
+End Function
+
+Function Render()
+	RenderGui
+	RenderWorld
+	Render2D
+	RenderText
+	Flip
+End Function
+
+Function MouseEvent()
+	If MouseDown(1)
+		CaptureMouse
+		dropMenuBool=False 
+	EndIf
+	
+	If MouseDown(2)
+		CaptureMouse
+		dropMenuBool=True
+	EndIf
+End Function
+
+Function ActionEvent()
+	If btnCreate Then Text 20,20,"Create"
+	If btnAdd Then Text 20,20,"Add"
+	If btnDelete Then Text 20,20,"Delete"
+	If dropMenuBool=True		
+		value=DrawDropMenu(capMouseX,capMouseY,6,6,"Split Viewport/Join Viewport/----------/Exit/")
+		If value = 4 Then End
+	End If
+
+End Function 
+
+Function DrawDropMenuBox(x,y,tilex,tiley)
+	Color 192,192,192
+	Rect x,y,tilex*17,tiley*17+1,1
+	Color 0,0,0
+	Rect x+1,y+1,tilex*17-2,tiley*17-1,0
+End Function
+
+
+Function DrawDropMenu(x,y,tilex,tiley,txt$)
+	DrawDropMenuBox(x,y,tilex,tiley)
+	Local token$=""
+	Local list=0
+	For ctr = 1 To Len(txt$)
+		char$=Mid$(txt$,ctr,1)
+		If char$="/"
+			If MouseX()>x And MouseX()<x+(tilex*17)
+				For ctr2 = 0 To tiley-1
+					If MouseY()>y+(ctr2*17) And MouseY()<y+(ctr2*17)+17
+						Color 0,62,176
+						Rect x+3,y+(17*ctr2)+3,tilex*17-6,12,0
+						Color 0,0,0
+						If MouseDown(1)
+							Color 0,62,176
+							Rect x+3,y+(17*ctr2)+3,tilex*17-6,12,1
+							Color 0,0,0
+							value = ctr2+1
+							dropMenuBool=False
+						EndIf 	
+					EndIf 
+				Next 
+			EndIf 
+			Text x+5,y+(17*list)+2,token$:token$="":Goto addList
+		EndIf 
+		token$=token$+char	
+		.ret
+	Next
+	Return value
+.addList
+list = list+1
+Goto ret
+End Function
+
+Function DrawInputBox(tilex,tiley,w)
+	Color 220,220,220
+	Rect tilex*17,tiley*17,w*17,17
+	Color 128,128,128
+	Line tilex*17,tiley*17,tilex*17+w*17,tiley*17
+	Line tilex*17,tiley*17,tilex*17,tiley*17+17
+	Color 192,192,192
+	Line tilex*17,tiley*17+17,tilex*17+w*17,tiley*17+17
+	Line tilex*17+w*17,tiley*17,tilex*17+w*17,tiley*17+17
+	Color 0,0,0
+	Stop
+	txt$=getText(txt$,20)
+	Text tilex*17+(w*17)/2,tiley*17+17/2,txt$,0,1
+	Color 255,255,255
+	Text 20,20,txt$
+	
+	
+End Function 
+
+Function DrawButton(tilex,tiley,w,h,txt$)
+	If MouseDown(1)=True
+		Color 182,182,182
+		Rect tilex*17,tiley*17,w*17,h*17
+		Color 192,192,192
+		Line tilex*17,tiley*17,tilex*17+w*17,tiley*17
+		Line tilex*17,tiley*17,tilex*17,tiley*17+h*17
+		Color 128,128,128
+		Line tilex*17,tiley*17+h*17,tilex*17+w*17,tiley*17+h*17
+		Line tilex*17+w*17,tiley*17,tilex*17+w*17,tiley*17+h*17
+		Color 0,0,0
+		Text tilex*17+(w*17)/2,tiley*17+(h*17)/2,txt$,1,1	 					
+		If MouseX()>17*tilex And MouseX()<17*tilex+17*w
+			If MouseY()>17*tiley And MouseY()<17*tiley+17*h
+				Color 182,182,172
+				Rect tilex*17,tiley*17,w*17,h*17
+				Color 128,128,128
+				Line tilex*17,tiley*17,tilex*17+w*17,tiley*17
+				Line tilex*17,tiley*17,tilex*17,tiley*17+h*17
+				Color 192,192,192
+				Line tilex*17,tiley*17+h*17,tilex*17+w*17,tiley*17+h*17
+				Line tilex*17+w*17,tiley*17,tilex*17+w*17,tiley*17+h*17
+				Color 0,0,0
+				Text tilex*17+(w*17)/2,tiley*17+(h*17)/2,txt$,1,1
+				Return True
+			EndIf
+		EndIf
+		Else
+		Color 182,182,182
+		Rect tilex*17,tiley*17,w*17,h*17
+		Color 192,192,192
+		Line tilex*17,tiley*17,tilex*17+w*17,tiley*17
+		Line tilex*17,tiley*17,tilex*17,tiley*17+h*17
+		Color 128,128,128
+		Line tilex*17,tiley*17+h*17,tilex*17+w*17,tiley*17+h*17
+		Line tilex*17+w*17,tiley*17,tilex*17+w*17,tiley*17+h*17
+		Color 0,0,0
+		Text tilex*17+(w*17)/2,tiley*17+(h*17)/2,txt$,1,1	
+	 					
+	EndIf
+
+				
+
+End Function 
+
+Function CaptureMouse()
+	capMouseX=MouseX():capMouseY=MouseY()
+End Function
+
+Function getText$(txt$, maxChars, numeric = False)
+;-------------------------------------------------------------------
+;An alternative to the Input command so execution is not halted.
+;Use function in your program loop. e.g. 
+
+;-------------------------------------------------------------------
+	If numeric Then
+		lowVal = 48
+		highVal = 57
+	Else
+		lowVal = 32
+		highVal = 255
+	End If
+	
+	k = GetKey()
+	Stop
+	txtLen = Len(txt)
+	If txtLen < maxChars And (k >= lowVal And k <= highVal) Then txt = txt + Chr(k)
+	If k = 8 And txtLen > 0 Then txt = Left(txt, txtLen - 1)
+
+	Return txt
+End Function

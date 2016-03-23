@@ -1,0 +1,499 @@
+; ID: 1249
+; Author: mongia2
+; Date: 2004-12-30 04:16:07
+; Title: new fast animation
+; Description: animation mnz
+
+;mnz animation
+;mnzsoftware@aliceposta.it
+
+
+Dim bank_anim(100)
+Dim bank_anim_rt(100)
+
+
+Dim num_bo(100)
+Dim costante_anim(0)
+costante_anim(0)=24050
+
+
+dd=MilliSecs()
+
+Dim load(0)
+load(0)=0
+
+Global mu
+
+
+numero_omini=100
+Dim play_blending(numero_omini)
+Dim frame_iniziale(numero_omini)
+Dim frame_finale(numero_omini)
+Dim frame_spazio(numero_omini)
+Dim tipo_blending(numero_omini)
+Dim attivazione_blending(numero_omini)
+Dim incrementale_blending(numero_omini)
+Dim frame_blending(numero_omini)
+Dim transizione_blending(numero_omini)
+Dim tipologia_blending(100)
+
+
+
+
+Graphics3D 800,600,16,2
+SetBuffer BackBuffer()
+
+AppTitle "mnz compiler 001","Sei sicuro?"
+
+camera=CreateCamera()
+
+AmbientLight(100, 100, 100)
+
+
+as$="load a animfile b3d"   ; load a animfile
+
+; Load mesh
+mesh=LoadAnimMesh(as$)
+
+
+
+
+PositionEntity mesh,0,0,0
+
+
+xx=90
+EntityFX mesh,16
+
+
+Dim numero_bones(0)
+Dim nome_bones$(5,100)
+numero_bones(0)=23
+
+bon=numero_bones(0)
+Dim bones(bon,10)
+fra=1000
+
+
+
+
+
+Dim angolo_bone_x#(bon,fra)
+Dim angolo_bone_y#(bon,fra)
+Dim angolo_bone_z#(bon,fra)
+Dim pos_bone_x#(bon,fra)
+Dim pos_bone_y#(bon,fra)
+Dim pos_bone_z#(bon,fra)
+
+
+bank_anim_rt(0)=CreateBank(bon*18*4+100)
+
+
+
+
+Dim iniziale_ax#(bon,10)    ;0
+Dim iniziale_ay#(bon,10)    ;4
+Dim iniziale_az#(bon,10)    ;8
+Dim iniziale_pax#(bon,10)   ;12
+Dim iniziale_pay#(bon,10)   ;16
+Dim iniziale_paz#(bon,10)   ;20
+
+Dim attuale_ax#(bon,10)     ;24
+Dim attuale_ay#(bon,10)     ;28
+Dim attuale_az#(bon,10)     ;32
+Dim attuale_pax#(bon,10)    ;36
+Dim attuale_pay#(bon,10)    ;40
+Dim attuale_paz#(bon,10)    ;44
+
+
+Dim differenza_ax#(bon,10)  ;48
+Dim differenza_ay#(bon,10)  ;52
+Dim differenza_az#(bon,10)  ;56
+Dim differenza_pax#(bon,10) ;60
+Dim differenza_pay#(bon,10) ;64
+Dim differenza_paz#(bon,10) ;68
+
+
+
+b3dhierarchy(mesh%,0)
+
+
+
+
+If load(0)=0
+num=0
+
+;-------------------------------------zero°
+For n=0 To numero_bones(0)
+bones(n,num)=FindChild (mesh,nome_bones$(0,n))
+For fra=0 To 699       ;qui 280
+SetAnimTime mesh,fra,0  ;colpo a zero°
+
+angolo_bone_x#(n,fra)=EntityPitch#(bones(n,num))
+angolo_bone_y#(n,fra)=EntityYaw#(bones(n,num))
+angolo_bone_z#(n,fra)=EntityRoll#(bones(n,num))
+pos_bone_x#(n,fra)=EntityX#(bones(n,num))
+pos_bone_y#(n,fra)=EntityY#(bones(n,num))
+pos_bone_z#(n,fra)=EntityZ#(bones(n,num))
+
+
+Next
+Next
+
+
+tempo_s2=MilliSecs()-dd
+
+
+;#####################################################
+file_save=WriteFile("dati_scheletro_001.txt")
+For n =0 To numero_bones(0)
+For fra=0 To 1000
+WriteFloat (file_save,angolo_bone_x#(n,fra))
+WriteFloat (file_save,angolo_bone_y#(n,fra))
+WriteFloat (file_save,angolo_bone_z#(n,fra))
+WriteFloat (file_save,pos_bone_x#(n,fra))
+WriteFloat (file_save,pos_bone_y#(n,fra))
+WriteFloat (file_save,pos_bone_z#(n,fra))
+
+Next
+Next
+CloseFile file_save
+;######################################
+
+
+EndIf
+;#####################################
+
+
+
+num=0
+file_save=ReadFile("dati_scheletro_001.txt")
+For n =0 To numero_bones(0)
+bones(n,num)=FindChild(mesh,nome_bones$(0,n))
+For fra=0 To 1000
+angolo_bone_x#(n,fra)=ReadFloat(file_save)
+angolo_bone_y#(n,fra)=ReadFloat(file_save)
+angolo_bone_z#(n,fra)=ReadFloat(file_save)
+pos_bone_x#(n,fra)=ReadFloat(file_save)
+pos_bone_y#(n,fra)=ReadFloat(file_save)
+pos_bone_z#(n,fra)=ReadFloat(file_save)
+Next
+Next
+CloseFile file_save
+
+
+file_save=ReadFile("dati_scheletro_001.txt")
+bank_anim(0)=CreateBank(costante_anim(0)*(numero_bones(0)+1)*24.1)
+
+For n=0 To numero_bones(0)
+For fra=0 To 1000
+PokeFloat bank_anim(0),0+fra*24+n*costante_anim(0),ReadFloat(file_save)
+PokeFloat bank_anim(0),4+fra*24+n*costante_anim(0),ReadFloat(file_save)
+PokeFloat bank_anim(0),8+fra*24+n*costante_anim(0),ReadFloat(file_save)
+PokeFloat bank_anim(0),12+fra*24+n*costante_anim(0),ReadFloat(file_save)
+PokeFloat bank_anim(0),16+fra*24+n*costante_anim(0),ReadFloat(file_save)
+PokeFloat bank_anim(0),20+fra*24+n*costante_anim(0),ReadFloat(file_save)
+
+Next
+Next
+CloseFile file_save
+
+
+
+
+
+
+hide=0
+
+
+tempo_s=MilliSecs()-dd
+
+
+
+
+hide2=1
+
+PositionEntity camera,5,5,5
+PointEntity camera,mesh
+
+
+set_anim_mnz(0,1,2,0,639,2,40)
+
+
+
+While Not KeyDown( 1 )
+
+
+If KeyHit(2) Then set_anim_mnz(0,1,2,91,118,1,4)
+
+
+
+If KeyDown(75) Then xs#=xs#-.01
+If KeyDown(77) Then xs#=xs#+.01
+
+
+;positionentity sfere,0,.305,xs#
+
+	; Time elapsed between last frame
+		Time% = MilliSecs()
+		DeltaTime# = Float(Time - OldTime) / 1000   ; in seconds
+		OldTime% = Time
+	
+		; Camera movement
+		CamSpd# = 20 * DeltaTime
+		MoveEntity(camera, Float(KeyDown(205) - KeyDown(203)) * CamSpd, 0, Float(KeyDown(200) - KeyDown(208)) * CamSpd)
+
+		If MouseDown(1)
+			TurnSpeed# = 0.8
+			TurnEntity(camera, Float(MouseYSpeed())  * TurnSpeed#, 0, 0, False)
+			TurnEntity(camera, 0, -Float(MouseXSpeed()) * TurnSpeed#, 0, True)
+		Else
+			MouseXSpeed() : MouseYSpeed()
+		EndIf
+
+    tempo_click=tempo_click-1
+
+
+
+    ;if keyhit(72) then hideentity bones(63,0)
+    ;if keyhit(80) then showentity bones(63,0)
+
+
+If KeyDown(59)
+set_anim_mnz(0,1,2,0,50,2,40)
+EndIf
+
+If KeyDown(60)
+set_anim_mnz(0,1,2,100,150,2,10)
+EndIf
+
+
+If KeyDown(64) And tempo_click<0
+tempo_click=3
+mu=mu+1
+If mu=78 Then mu=78
+set_anim_mnz(0,1,2,mu,mu,1,1)
+EndIf
+
+
+If KeyDown(62) And tempo_click<0
+tempo_click=3
+mu=mu-1
+If mu<0 Then mu=0
+set_anim_mnz(0,1,2,mu,mu,1,1)
+EndIf
+
+
+te=MilliSecs()
+
+anim_mnz_poke_new(0)
+
+te2=MilliSecs()-te
+
+
+
+UpdateWorld
+RenderWorld
+
+num=0
+Text 10,80,"te2 "+te2
+
+
+
+
+
+
+
+Text 500,100,"frame_blending(num)"+frame_blending(0)
+
+
+
+Text 10,180,"AnimLength (mesh)"+AnimLength (mesh)
+
+Flip
+Wend
+
+End
+
+
+
+
+Function Point_Entity(entity,x#,y#,z#)
+   xdiff# = EntityX(entity)-x#
+   ydiff# = EntityY(entity)-y#
+   zdiff# = EntityZ(entity)-z#
+   dist#=Sqr#((xdiff#*xdiff#)+(zdiff#*zdiff#))
+   pitch# = ATan2(ydiff#,dist#)
+   yaw#   = ATan2(xdiff#,-zdiff#)
+   RotateEntity entity,pitch#,yaw#,0
+End Function
+
+
+
+Function AngleDifference#(angle1#,angle2#)
+Return ((angle2 - angle1) Mod 360 + 540) Mod 360 - 180
+End Function
+
+
+Function set_anim_mnz(num,tipo,att,ini,fini,spa,trans)
+attivazione_blending(num)=att
+incrementale_blending(num)=0
+frame_iniziale(num)=ini
+frame_finale(num)=fini
+frame_spazio(num)=spa
+transizione_blending(num)=trans
+tipologia_blending(num)=tipo
+
+End Function
+
+
+
+
+
+
+Function anim_mnz_poke_new(num)
+
+If attivazione_blending(num)=2
+If incrementale_blending(num)=0
+For n=0 To numero_bones(0)
+
+PokeFloat bank_anim_rt(0),0+n*72,PeekFloat(bank_anim_rt(0),24+n*72)
+PokeFloat bank_anim_rt(0),4+n*72,PeekFloat(bank_anim_rt(0),28+n*72)
+PokeFloat bank_anim_rt(0),8+n*72,PeekFloat(bank_anim_rt(0),32+n*72)
+
+
+
+PokeFloat bank_anim_rt(0),48+n*72,AngleDifference#(PeekFloat(bank_anim_rt(0),24+n*72),PeekFloat(bank_anim(0),frame_iniziale(num)*24+n*costante_anim(0)))/transizione_blending(num)
+PokeFloat bank_anim_rt(0),52+n*72,AngleDifference#(PeekFloat(bank_anim_rt(0),28+n*72),PeekFloat(bank_anim(0),4+frame_iniziale(num)*24+n*costante_anim(0)))/transizione_blending(num)
+PokeFloat bank_anim_rt(0),56+n*72,AngleDifference#(PeekFloat(bank_anim_rt(0),32+n*72),PeekFloat(bank_anim(0),8+frame_iniziale(num)*24+n*costante_anim(0)))/transizione_blending(num)
+
+
+PokeFloat bank_anim_rt(0),12+n*72,PeekFloat(bank_anim_rt(0),36+n*72)
+PokeFloat bank_anim_rt(0),16+n*72,PeekFloat(bank_anim_rt(0),40+n*72)
+PokeFloat bank_anim_rt(0),20+n*72,PeekFloat(bank_anim_rt(0),44+n*72)
+
+
+PokeFloat bank_anim_rt(0),60+n*72,(PeekFloat(bank_anim_rt(0),36+n*72)-PeekFloat(bank_anim(0),12+frame_iniziale(num)*24+n*costante_anim(0)))/transizione_blending(num)
+PokeFloat bank_anim_rt(0),64+n*72,(PeekFloat(bank_anim_rt(0),40+n*72)-PeekFloat(bank_anim(0),16+frame_iniziale(num)*24+n*costante_anim(0)))/transizione_blending(num)
+PokeFloat bank_anim_rt(0),68+n*72,(PeekFloat(bank_anim_rt(0),44+n*72)-PeekFloat(bank_anim(0),20+frame_iniziale(num)*24+n*costante_anim(0)))/transizione_blending(num)
+
+
+Next
+EndIf
+incrementale_blending(num)=incrementale_blending(num)+1
+
+For n=0 To numero_bones(0)
+
+PokeFloat bank_anim_rt(0),24+n*72,PeekFloat(bank_anim_rt(0),0+n*72)+PeekFloat(bank_anim_rt(0),48+n*72)* incrementale_blending(num)
+PokeFloat bank_anim_rt(0),28+n*72,PeekFloat(bank_anim_rt(0),4+n*72)+PeekFloat(bank_anim_rt(0),52+n*72)* incrementale_blending(num)
+PokeFloat bank_anim_rt(0),32+n*72,PeekFloat(bank_anim_rt(0),8+n*72)+PeekFloat(bank_anim_rt(0),56+n*72)* incrementale_blending(num)
+
+RotateEntity bones(n,num),PeekFloat(bank_anim_rt(0),24+n*72),PeekFloat(bank_anim_rt(0),28+n*72),PeekFloat(bank_anim_rt(0),32+n*72)
+
+PokeFloat bank_anim_rt(0),36+n*72,PeekFloat(bank_anim_rt(0),12+n*72)-PeekFloat(bank_anim_rt(0),60+n*72)* incrementale_blending(num)
+PokeFloat bank_anim_rt(0),40+n*72,PeekFloat(bank_anim_rt(0),16+n*72)-PeekFloat(bank_anim_rt(0),64+n*72)* incrementale_blending(num)
+PokeFloat bank_anim_rt(0),44+n*72,PeekFloat(bank_anim_rt(0),20+n*72)-PeekFloat(bank_anim_rt(0),68+n*72)* incrementale_blending(num)
+
+
+PositionEntity bones(n,num),PeekFloat(bank_anim_rt(0),36+n*72),PeekFloat(bank_anim_rt(0),40+n*72),PeekFloat(bank_anim_rt(0),44+n*72)
+
+
+Next
+
+If incrementale_blending(num)>=transizione_blending(num)
+attivazione_blending(num)=1
+
+
+
+incrementale_blending(num)=0
+frame_blending(num)=frame_iniziale(num)+1
+EndIf
+EndIf
+
+
+
+If attivazione_blending(num)=1 And tipologia_blending(num)=1
+
+If incrementale_blending(num)=0
+For n=0 To numero_bones(0)
+
+PokeFloat bank_anim_rt(0),0+n*72,PeekFloat(bank_anim_rt(0),24+n*72)
+PokeFloat bank_anim_rt(0),4+n*72,PeekFloat(bank_anim_rt(0),28+n*72)
+PokeFloat bank_anim_rt(0),8+n*72,PeekFloat(bank_anim_rt(0),32+n*72)
+
+
+PokeFloat bank_anim_rt(0),48+n*72,AngleDifference#(PeekFloat(bank_anim_rt(0),24+n*72),PeekFloat(bank_anim(0),frame_blending(num)*24+n*costante_anim(0)))/frame_spazio(num)
+PokeFloat bank_anim_rt(0),52+n*72,AngleDifference#(PeekFloat(bank_anim_rt(0),28+n*72),PeekFloat(bank_anim(0),4+frame_blending(num)*24+n*costante_anim(0)))/frame_spazio(num)
+PokeFloat bank_anim_rt(0),56+n*72,AngleDifference#(PeekFloat(bank_anim_rt(0),32+n*72),PeekFloat(bank_anim(0),8+frame_blending(num)*24+n*costante_anim(0)))/frame_spazio(num)
+
+
+PokeFloat bank_anim_rt(0),12+n*72,PeekFloat(bank_anim_rt(0),36+n*72)
+PokeFloat bank_anim_rt(0),16+n*72,PeekFloat(bank_anim_rt(0),40+n*72)
+PokeFloat bank_anim_rt(0),20+n*72,PeekFloat(bank_anim_rt(0),44+n*72)
+
+
+PokeFloat bank_anim_rt(0),60+n*72,(PeekFloat(bank_anim_rt(0),36+n*72)-PeekFloat(bank_anim(0),12+frame_blending(num)*24+n*costante_anim(0)))/frame_spazio(num)
+PokeFloat bank_anim_rt(0),64+n*72,(PeekFloat(bank_anim_rt(0),40+n*72)-PeekFloat(bank_anim(0),16+frame_blending(num)*24+n*costante_anim(0)))/frame_spazio(num)
+PokeFloat bank_anim_rt(0),68+n*72,(PeekFloat(bank_anim_rt(0),44+n*72)-PeekFloat(bank_anim(0),20+frame_blending(num)*24+n*costante_anim(0)))/frame_spazio(num)
+
+
+Next
+EndIf
+incrementale_blending(num)=incrementale_blending(num)+1
+
+
+
+
+For n=0 To numero_bones(0)
+;attuale_ax#(n,num)=peekfloat(bank_anim_rt(0),0+n*72)+differenza_ax#(n,num)* incrementale_blending(num)
+;attuale_ay#(n,num)=peekfloat(bank_anim_rt(0),4+n*72)+differenza_ay#(n,num)* incrementale_blending(num)
+;attuale_az#(n,num)=peekfloat(bank_anim_rt(0),8+n*72)+differenza_az#(n,num)* incrementale_blending(num)
+
+PokeFloat bank_anim_rt(0),24+n*72,PeekFloat(bank_anim_rt(0),0+n*72)+PeekFloat(bank_anim_rt(0),48+n*72)* incrementale_blending(num)
+PokeFloat bank_anim_rt(0),28+n*72,PeekFloat(bank_anim_rt(0),4+n*72)+PeekFloat(bank_anim_rt(0),52+n*72)* incrementale_blending(num)
+PokeFloat bank_anim_rt(0),32+n*72,PeekFloat(bank_anim_rt(0),8+n*72)+PeekFloat(bank_anim_rt(0),56+n*72)* incrementale_blending(num)
+
+RotateEntity bones(n,num),PeekFloat(bank_anim_rt(0),24+n*72),PeekFloat(bank_anim_rt(0),28+n*72),PeekFloat(bank_anim_rt(0),32+n*72)
+
+
+PokeFloat bank_anim_rt(0),36+n*72,PeekFloat(bank_anim_rt(0),12+n*72)-PeekFloat(bank_anim_rt(0),60+n*72)* incrementale_blending(num)
+PokeFloat bank_anim_rt(0),40+n*72,PeekFloat(bank_anim_rt(0),16+n*72)-PeekFloat(bank_anim_rt(0),64+n*72)* incrementale_blending(num)
+PokeFloat bank_anim_rt(0),44+n*72,PeekFloat(bank_anim_rt(0),20+n*72)-PeekFloat(bank_anim_rt(0),68+n*72)* incrementale_blending(num)
+
+
+PositionEntity bones(n,num),PeekFloat(bank_anim_rt(0),36+n*72),PeekFloat(bank_anim_rt(0),40+n*72),PeekFloat(bank_anim_rt(0),44+n*72)
+
+Next
+
+If incrementale_blending(num)>=frame_spazio(num)
+attivazione_blending(num)=1
+
+frame_blending(num)=frame_blending(num)+1
+      If frame_blending(num)>frame_finale(num)
+      attivazione_blending(num)=2
+
+      EndIf
+
+incrementale_blending(num)=0
+EndIf
+EndIf
+
+
+End Function
+
+
+Function b3dhierarchy(parent%,numero)
+
+
+	children%=CountChildren(parent%)
+	For loop = 1 To children%
+		child%=GetChild (parent%,loop)
+		;Print EntityName$(child%)
+	;	writeline (file(0),"nome_bones$("+tipo+","+str$(num(0))+")="+chr(34)+EntityName$(child%)+chr(34))
+		
+    nome_bones$(numero,num_bo(numero))=EntityName$(child%)
+    num_bo(numero)=num_bo(numero)+1
+		b3dhierarchy(child%,numero)
+	Next
+	
+
+End Function

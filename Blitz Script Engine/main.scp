@@ -1,0 +1,3 @@
+VAR a 
+PUSH 5,a
+POP a

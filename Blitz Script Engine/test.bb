@@ -1,0 +1,219 @@
+
+
+
+Type StringTokenizer
+Field token$
+Field tokenNum
+Field tokentype  ;0, = null, 1 = num, 2 = string
+Field position
+Field amount
+End Type
+
+
+Global dataline.StringTokenizer = New StringTokenizer
+Global command$, codeline$, scriptfile, varptr=0, varsize=100
+Global ret, start, init, loop
+Dim varNAME$(varsize), varINT(varsize), varSTR$(varsize), varFLOAT(varsize)
+
+
+
+
+
+WaitKey() 
+scriptfile = ReadFile("mydata.dat")
+  codeline$ = ReadLine(scriptfile)
+  NextToken(codeline$)
+  If dataline\token$ = ".start" Then start=True
+  If dataline\token$ = ".init" Then init=True
+Repeat 
+  codeline$ = ReadLine(scriptfile)
+  ResetToken()
+  NextToken(codeline$)
+  ExecuteCommand(dataline\token$)
+Until codeline$ = "END"
+CloseFile( scriptfile )
+
+
+WaitKey()
+End ; End of program
+
+
+Function NextToken(handles$)
+ container$ = ""
+ isString = False
+ isNum = False
+ For ctr = 1 To Len(handles$)
+  pointer$ = Mid$(handles$,ctr,1)
+  If pointer = Chr$(9) Goto skip 			;if Tab exist
+  If pointer = " " Or pointer = "," Goto delim  	
+  If pointer = Chr$(34)
+   isString = True
+   Exit
+  EndIf
+  If Asc(pointer) >= 48 And Asc(pointer) <= 57
+   isNum = True
+   Exit
+  EndIf
+  If delimiterCount = dataline\position Then container$ = container$ + pointer$ 
+  .delim
+  If pointer = " " Or pointer = "," 
+    If ctr > 3 And delimiterCount = 0  
+     delimiterCount = delimiterCount + 1
+     Exit
+    EndIf
+   delimiterCount = delimiterCount + 1
+  EndIf
+  .skip 
+ Next
+ 
+ If isString=True
+   dataline\tokentype = 2
+   For ctr = ctr To Len(handles$)
+    pointer$ = Mid$(handles$,ctr,1)
+    If pointer$ = Chr$(34) Then Goto stringcollect
+    container$ = container$ + pointer$
+   Next
+ EndIf 
+
+ If isNum=True
+   dataline\tokentype = 1
+   For ctr = ctr To Len(handles$)
+    pointer$ = Mid$(handles$,ctr,1)
+    If pointer$ = "," Or pointer$ = " " 
+    dataline\tokenNum# = bin2int(Bin$(container$))
+    Goto endcollect
+    EndIf
+    container$ = container$ + pointer$
+   Next
+ EndIf 
+
+ .stringcollect 
+  dataline\token$ = container$
+ .endcollect
+  dataline\position = dataline\position + 1
+End Function
+
+; Counts how many tokens are there in a string sentence
+Function CountToken(handles$)
+ For ctr = 1 To Len(handles$)
+  pointer$ = Mid$(handles$,ctr,1)
+  If pointer = " " Or pointer = "," Then delimiterCount = delimiterCount + 1 
+ Next 
+ dataline\amount = delimiterCount + 1
+ Return delimiterCount + 1
+End Function 
+
+Function ResetToken()
+ dataline\position = 0
+End Function
+
+Function bin2int(this$)
+	thisint = 0
+	blen = Len(this$)
+	For a = 1 To blen
+		ibit = Int(Mid$(this$,a,1))
+		If ibit thisint = thisint + (ibit * (2^(blen - a)))
+	Next
+	Return thisint
+End Function
+
+Function ExecuteCommand (command$)
+If start=True 
+command$ = Upper$(command$)
+
+Select command$
+Case "INT" 
+ NextToken(codeline$)
+ varNAME$(varptr) = dataline\token$
+ varptr = varptr + 1
+
+ 
+Case "PUSH" 
+ NextToken(codeline$)
+ value = dataline\tokenNum
+ NextToken(codeline$)
+ variable$ = dataline\token$  
+ For varptr = 0 To varsize
+  If varNAME$(varptr) = variable$ Then Exit  
+ Next 
+ varINT(varptr) = value
+
+ 
+
+Case "ADD"
+ NextToken(codeline$)
+ var1$ = dataline\token$
+ NextToken(codeline$)
+ var2$ = dataline\token$
+ For varptr = 0 To varsize
+  If varNAME$(varptr) = var1$ Then val1=varINT(varptr)
+  If varNAME$(varptr) = var2$ Then val2=varINT(varptr)  
+ Next 
+ ret = val1+val2
+
+
+Case "POP"
+ NextToken(codeline$)
+ variable$ = dataline\token$
+ For varptr = 0 To varsize
+  If varNAME$(varptr) = variable$ Then Exit  
+ Next
+ Print varINT(varptr)
+
+
+Case "RET"
+ NextToken(codeline$)
+ variable$ = dataline\token$  
+ For varptr = 0 To varsize
+  If varNAME$(varptr) = variable$ Then Exit  
+ Next 
+ varINT(varptr) = ret
+
+
+Case "GOTO" 
+ NextToken(codeline$)
+ SeekFile (scriptfile, 0)
+ Repeat
+  If ReadLine(scriptfile) = dataline\token$ 
+   position = FilePos(scriptfile) 
+  Exit
+ EndIf
+ Forever 
+ SeekFile (scriptfile, position)
+
+
+Case "FUNC"
+ NextToken(codeline$)
+ func_name$ = dataline\token$ 
+ execute_function(func_name$)
+
+Case "{"
+  loop=True
+  NextToken(codeline$)
+  func_name$ = dataline\token$ 
+  ExecuteCommand(func_name$)
+
+Case "}"
+   loop=False 
+
+
+End Select 
+
+EndIf
+End Function
+
+Function execute_function(func$)
+
+ If Lower$(func$)="graphics"
+  NextToken(codeline$)
+  width = dataline\tokenNum
+  NextToken(codeline$)
+  height = dataline\tokenNum
+  NextToken(codeline$)
+  depth = dataline\tokenNum
+  NextToken(codeline$)
+  mode = dataline\tokenNum
+  Graphics3D width,height,depth,mode
+ EndIf 
+
+End Function

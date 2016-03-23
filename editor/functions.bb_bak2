@@ -1,0 +1,79 @@
+
+Function Line3d(x0#,y0#,z0#,x1#,y1#,z1#, camera)
+	CameraProject (camera,x0,y0,z0)
+	px0#=ProjectedX# ( ) 
+	py0#=ProjectedY# ( ) 
+	pz0#=ProjectedZ# ( ) 
+
+	CameraProject (camera,x1,y1,z1)
+	If camera=viewTL
+		If ProjectedZ#( ) >0 And pz0>0 Then Line px0+(17*16),py0+(17*3),ProjectedX#()+(17*16),ProjectedY#()+(17*3)
+	ElseIf camera=viewTR
+		If ProjectedZ#( ) >0 And pz0>0 Then Line px0+(17*38),py0+(17*3),ProjectedX#()+(17*38),ProjectedY#()+(17*3)
+	ElseIf camera=viewBL
+		If ProjectedZ#( ) >0 And pz0>0 Then Line px0+(17*16),py0+(17*23),ProjectedX#()+(17*16),ProjectedY#()+(17*23)
+	ElseIf camera=viewBR
+		If ProjectedZ#( ) >0 And pz0>0 Then Line px0+(17*38),py0+(17*23),ProjectedX#()+(17*38),ProjectedY#()+(17*23)
+	ElseIf camera=viewFull
+		If ProjectedZ#( ) >0 And pz0>0 Then Line px0+(17*16),py0+(17*3),ProjectedX#()+(17*16),ProjectedY#()+(17*3)
+	EndIf
+End Function
+
+Function DrawGridY(view)
+	size=25
+	Color 30,30,30
+ 	For y = size To -size Step -1
+		Segments3d(-size,y,0,size,y,0,view,15)
+		Segments3d(y,-size,0,y,size,0,view,15)	
+	Next
+	Color 60,60,60
+	For y = size To -size Step -5
+		Segments3d(-size,y,0,size,y,0,view,15)
+		Segments3d(y,-size,0,y,size,0,view,15)	
+	Next
+	Color 100,100,100
+	For y = size To -size Step -10
+		Segments3d(-size,y,0,size,y,0,view,15)
+		Segments3d(y,-size,0,y,size,0,view,15)	
+	Next
+End Function 
+Function DrawGridX(view)
+	size=25
+	Color 30,30,30
+ 	For x = size To -size Step -1
+		Segments3d(-size,0,x,size,0,x,view,15)
+		Segments3d(x,0,-size,x,0,size,view,15)	
+	Next
+	Color 60,60,60
+ 	For x = size To -size Step -5
+		Segments3d(-size,0,x,size,0,x,view,15)
+		Segments3d(x,0,-size,x,0,size,view,15)	
+	Next
+	Color 100,100,100
+ 	For x = size To -size Step -10
+		Segments3d(-size,0,x,size,0,x,view,15)
+		Segments3d(x,0,-size,x,0,size,view,15)	
+	Next
+	
+End Function 
+Function DrawGridZ(view)
+	size=25
+	Color 30,30,30
+ 	For z = size To -size Step -1
+		Segments3d(0,size,z,0,-size,z,view,15)
+		Segments3d(0,z,size,0,z,-size,view,15)	
+	Next
+	Color 60,60,60
+	For z = size To -size Step -5
+		Segments3d(0,size,z,0,-size,z,view,15)
+		Segments3d(0,z,size,0,z,-size,view,15)		
+	Next
+	Color 100,100,100
+	For z = size To -size Step -10
+		Segments3d(0,size,z,0,-size,z,view,15)
+		Segments3d(0,z,size,0,z,-size,view,15)
+	Next
+	
+End Function 
+
+

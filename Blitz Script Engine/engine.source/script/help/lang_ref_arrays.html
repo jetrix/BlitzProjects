@@ -1,0 +1,46 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+
+<title>Language Reference - Arrays</title>
+<link rel="stylesheet" href="lang_ref.css" type="text/css">
+</head>
+
+<body><br>
+&nbsp;<span class="Command">&nbsp;Arrays&nbsp;</span> 
+<blockquote> 
+  <p>Arrays are created using the standard BASIC '<b>Dim</b>   ' 
+    statement, and may be only one&nbsp;dimension. For example: </p>
+  <blockquote> 
+    <p><i>Dim arr[10]</i></p>
+  </blockquote>
+  <p>    Creates an&nbsp;array called 'arr' with 11 elements numbered 0...10.<br><BR>An array may be dimensioned at 
+  more than one point in a program, each time an array is dimensioned, it's 
+  previous contents are discarded. Arrays may be dimensioned inside functions, 
+  but a corresponding 'Dim' statement of the same array must also appear 
+  somewhere in the main program. For example:
+  </p>
+  <BLOCKQUOTE> 
+    <p> <i> Dim test[0]</i></p>
+    <p><i> Function Setup( x ) </i></p>
+    <blockquote>
+      <p><i>Dim test[x]</i></p>
+    </blockquote>
+    <p><i> End Function</i> </p></BLOCKQUOTE>
+  <P>BlitzScript automatically creates a Pointer for arrays so they can be 
+  treated like a LIFO Stack.&nbsp;Push , Pop, and Jump&nbsp;Functions can be 
+  used to&nbsp;store and retreive values.</P>
+  <BLOCKQUOTE dir=ltr style="MARGIN-RIGHT: 0px">
+    <P><EM>Push(test[x]) ;increments pointer by one, assigns value into to element</EM></P>
+    <EM>
+    <P>x = Pop(test)&nbsp;;assigns value at element into x, decrement pointer 
+      by one</P>
+    </EM></BLOCKQUOTE>
+  <BLOCKQUOTE>
+    <P><EM>Jump test(x) ;positioned test array pointer at 
+x</EM></P></BLOCKQUOTE>
+</blockquote>
+</body>
+</html>

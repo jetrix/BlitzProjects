@@ -1,0 +1,39 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+
+<title>Language Reference - Arrays</title>
+<link rel="stylesheet" href="lang_ref.css" type="text/css">
+</head>
+
+<body><br>
+&nbsp;<span class="Command">&nbsp;Arrays&nbsp;</span> 
+<blockquote> 
+  <p>An array is an ordered collection of variables of the same type, indexed 
+    by an integer which counts from zero. The information needed consists of:</p>
+  <blockquote> 
+    <p> 1) The data type of the elements. All elements have<br>
+      the same data type, so it's natural to attribute<br>
+      the same data type to the array itself. In other<br>
+      words there is one data type per array, and it <br>
+      applies to all elements.<br>
+      2) Number of dimensions <br>
+      3) The start-index and end-index of each dimension.</p>
+  </blockquote>
+  <p>The internal structure of arrays is imposed by the compiler consistently 
+    interpreting the storage area as a sequence of specific elements. The interpretation 
+    is done by code the compiler inserts in the program, the code implements a 
+    formula that translates array indices to memory addresses. For example, a 
+    formula for a one-dimensional array may be similar to:</p>
+  <blockquote>
+    <p> Memory-address = <br>
+      Base-address + Element-size * (Array-index - Start-index)</p>
+    <p></p>
+    <p></p>
+  </blockquote>
+  <BLOCKQUOTE>&nbsp;</BLOCKQUOTE>
+</blockquote>
+</body>
+</html>

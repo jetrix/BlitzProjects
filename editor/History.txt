@@ -1,0 +1,20 @@
+033105 - v0.06a
+Revised Gui
+Added splash image
+Added buttons: views, toggle wireframe
+Fixed MouseX/Yspeed bug, no more jumping when clicked
+Note: Arrg! This took me forever to solve, I noticed that movemouse was the main
+cause of improper variable upon capturing when clicked which caused the camera to jump out 
+from the center of the viewport. The only way was call another movemouse before hand.
+Fixed wireframing mode, now independent on each viewport
+
+033005 - v0.05a
+Added mouse event actions
+Added wireframing mode
+Added pan, zoom, rotate actions
+Fixed zooming speed
+
+032905 - v0.04a
+Basic gui layout, main buttons
+Working Viewports
+Simple button actions

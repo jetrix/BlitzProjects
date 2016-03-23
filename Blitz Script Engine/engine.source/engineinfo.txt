@@ -1,0 +1,19 @@
+Engine Layout
+
+AI	<-Pathfinding,waypoints,rule sets,events
+Base	<-Constants,Maths,Filehandles
+Console <-Runtime debugger
+Core	<-Camera,Collisions,Skybox,Mesh
+Effects <-Particles,LensFlare,Refractions,Cubemapping,Shadows
+ -Filters <-Motion blur,Dream,Bloom
+Interface <-Menus,Loader
+Network <-TCP/UDP,FTP commands
+Script	<-Script file parser
+Systems
+ -Audio <-Ogg,mp3,mods,3d sound,listeners
+ -Config <-Systems initializer
+ -Graphics <-Basic 2d/3d functions
+ -IO	<-Keyboard,mouse
+ -Timer <-Counters,framerate
+Tools <-Packers,loaders,replay tool
+

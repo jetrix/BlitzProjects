@@ -1,0 +1,55 @@
+[Project ID]
+Signature=UE Proj: v.1
+[Open Files]
+Open File0=D:\Documents and Settings\Admin\Desktop\editor\constants.bb
+Active File Display Mode=3
+Open File Pos0=0
+Open File Line0=0
+Open File Window Pos0=0,1,-1,-1,-4,-26,22,25,766,322
+Open File1=D:\Documents and Settings\Admin\Desktop\editor\editor.bb
+Open File Pos1=444
+Open File Line1=0
+Active File Index=7
+Open File Window Pos1=0,1,-1,-1,-4,-26,44,50,792,351
+Open File2=D:\Documents and Settings\Admin\Desktop\editor\globals.bb
+Open File Pos2=0
+Open File Line2=0
+Open File Window Pos2=0,1,-1,-1,-4,-26,66,75,814,376
+Open File3=D:\Documents and Settings\Admin\Desktop\editor\gui.bb
+Open File Pos3=0
+Open File Line3=0
+Open File Window Pos3=0,1,-1,-1,-4,-26,88,100,836,401
+Open File4=D:\Documents and Settings\Admin\Desktop\editor\mouseevents.bb
+Open File Pos4=0
+Open File Line4=0
+Open File Window Pos4=0,1,-1,-1,-4,-26,110,125,858,426
+Open File5=D:\Documents and Settings\Admin\Desktop\editor\viewport.bb
+Open File Pos5=0
+Open File Line5=0
+Open File Window Pos5=0,1,-1,-1,-4,-26,0,0,748,301
+Open File6=D:\Documents and Settings\Admin\Desktop\editor\data.bb
+Open File Pos6=348
+Open File Line6=0
+Open File Window Pos6=0,1,-1,-1,-4,-26,22,25,770,326
+Open File7=D:\Documents and Settings\Admin\Desktop\test.b3d.xml
+Open File Pos7=0
+Open File Line7=87
+Open File Window Pos7=2,3,-1,-1,-4,-26,22,25,572,186
+Open File8=
+[Project Information]
+Use Relative Directory=1
+Relative to Project File=1
+Project Start=D5070400040007000F002C001100000037
+Include Sub Directories=1
+Project Tagfile=
+Project Wordfile=
+Filter=
+Create Tagfile=0
+Working Time=1047
+[Files]
+0=editor.bb
+1=globals.bb
+2=mouseevents.bb
+3=viewport.bb
+4=gui.bb
+5=constants.bb

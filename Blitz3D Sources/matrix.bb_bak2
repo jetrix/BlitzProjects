@@ -1,0 +1,84 @@
+Graphics  640,480,16,1
+Dim fo(3) 
+Dim xp(200) 
+Dim col(3) 
+Dim occupied(200) 
+SeedRnd MilliSecs() 
+For f = 0 To 3 
+sz = 10 + (f*2) 
+fo(f) = LoadFont("Gautami", sz, True, False, False) 
+
+SetFont fo(f) 
+Text 10,f*10, "M" 
+
+Next 
+
+col(0) = 8 
+col(1) = 6 
+col(2) = 4 
+col(3) = 2 
+
+t = Rand(100,400) 
+gGH = GraphicsHeight() 
+gGW = GraphicsWidth() 
+
+pid = 0 
+
+colcount = gGW / 10 
+
+For p = 0 To colcount 
+occupied(p) = 0 
+Next 
+
+
+For p = 0 To colcount 
+Repeat 
+pid = Rand(0, colcount) 
+xp(p) = pid * 12 
+Until (occupied(pid) = 0) 
+occupied(pid) = 1 
+Next 
+
+startMS = MilliSecs() 
+SetBuffer BackBuffer() 
+
+While Not KeyHit(1) 
+Cls 
+t = t + 1 
+xi = 0 
+For fi = 0 To 3 
+x = 65 * fi 
+Gmax = 127 + 128 * (fi / 3.0) 
+SetFont fo(fi) 
+stp = 8 + (fi * 2) 
+
+For i = 0 To col(fi) 
+ti = t / (1+i) 
+x = xp(xi) 
+b0 = ((t / (i+40)) ) + x 
+b1 = ((t / (i+57)) ) + x*3 
+G = GMax + (-(8 * t / ((xi Mod 3) + 1)) Mod Gmax) 
+For c = 0 To (gGH / stp) 
+G = (G + 7) Mod GMax 
+If (G > (GMax - 8)) Then 
+R = G / 2 
+B = G / 2 
+Else 
+R = G / 4 
+B = R 
+End If 
+Color R,G,B 
+y = (c * stp) - (ti Mod stp) 
+c0 = 33 + (b0 + (c * (1 + fi))) Mod (90-c) 
+c1 = 33 + (b1 + (c * (1 + fi))) Mod (33) 
+Text x, y, Chr(c0) 
+Text x, y, Chr(c1) 
+
+Next 
+xi = xi + 1 
+Next 
+Next 
+
+Flip() 
+
+Wend 

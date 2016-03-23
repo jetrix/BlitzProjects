@@ -1,0 +1,1991 @@
+;Plasma Console Class v2 by Frankie 'Techlord' Taylor Modified 06/27/03
+;script compiler developed from mark sibly's blitz compiler code.
+;blitz does not generate code like this! but the parsing is similar...
+;supported keywords: let,if, then, else, end, function
+;operators supported: binary +, -, *, /, <, =, >, <=, <>, >= and unary -
+;*,/,<<,>> have precedence over +, -,which have precendence over <,=,>,<=,<>,>=
+;parenthesis can be used to group subexpressions.
+
+;Process Hieararchy
+;1. Script *.basic file -> script compiler
+; Basic syntax script file *.basic compiled into x86 ASM Opcodes on the fly as
+; it is loaded into the script compiler. Opcodes are used to perform call
+; to the function tree
+;2. OpCode is compressed further into the script instruction bank
+
+;MAXIMUM NUMBER OF SCRIPTS = 256
+
+
+;Things To Do As Of 06/27/03
+;1. String support (concenation ?)
+;2. Arrays?
+;3. Soft Error Detection. Terminate script start without ending execution.
+
+; -----------------------------------------------------------------------------
+;CONSTANTS
+; -----------------------------------------------------------------------------
+; SCRIPT COMPILER CONSTANTS
+
+const TOKEN_ADD=-1
+const TOKEN_CLOSECOMMENT=-2
+const TOKEN_CLOSEPAR=-3
+const TOKEN_CLOSEQUOTE=-4
+const TOKEN_COLON=-5
+const TOKEN_COMMA=-6
+const TOKEN_OPENCOMMENT=-7
+const TOKEN_DIV=-8
+const TOKEN_ELSE=-9
+const TOKEN_END=-10
+const TOKEN_EQ=-11
+const TOKEN_GE=-12
+const TOKEN_GT=-13
+const TOKEN_IF=-14
+const TOKEN_LE=-15
+;const TOKEN_LET=-16
+const TOKEN_LT=-17
+const TOKEN_MUL=-18
+const TOKEN_NE=-19
+const TOKEN_COMMENT=-20
+const TOKEN_OPENPAR=-21
+const TOKEN_OPENQUOTE=-22
+const TOKEN_SHL=-23
+const TOKEN_SHR=-24
+const TOKEN_STRING=-25
+const TOKEN_SUB=-26
+const TOKEN_THEN=-27
+const TOKEN_VALUE=-28
+const TOKEN_VAR=-29
+const TOKEN_EXIT=-30
+const TOKEN_CONST=-31
+const TOKEN_FOR=-32
+const TOKEN_TO=-33
+const TOKEN_STEP=-34
+const TOKEN_NEXT=-35
+const TOKEN_SCRIPT=-36
+const TOKEN_ENDSCRIPT=-37
+const TOKEN_OPENBRACKET=-38
+const TOKEN_CLOSEBRACKET=-39
+const TOKEN_OPENBRACE=-40
+const TOKEN_CLOSEBRACE=-41
+const TOKEN_TEXT=-42
+
+const exec_infinite=-1,exec_timed=2
+
+; -----------------------------------------------------------------------------
+;GLOBALS
+; -----------------------------------------------------------------------------
+global TOKEN_CALL
+global token$
+global opfile
+global currentscript.script
+global varfloatid
+global varfloatlist
+global labid
+global lablist
+global scriptline$
+global scripthort ;syntax error checking
+global scriptvert ;syntax error checking
+global scriptfile
+global scriptend
+global maxscript=256
+
+; -----------------------------------------------------------------------------
+;ARRAYS
+; -----------------------------------------------------------------------------
+dim scriptref.script(maxscript)
+
+; -----------------------------------------------------------------------------
+;OBJECTS
+; -----------------------------------------------------------------------------
+
+type script
+	field id
+	field kind ;exec type ie:exec_infinite
+	field name$
+	;complete scripts are loaded into a instruction bank.
+	;the instruction stack is arranged
+	;[1 byte][1 byte ][bytes]
+	;[opcode][datatype][value],[datatype][value],..
+	field instruction ;bank
+	field instructionptr;ip
+	field arg#[10]
+	field argstack ;bank
+	field argstackptr;arg
+	;each script is provided its own stack,registers,flags
+	;for psudeo multi-threading
+	field stack ;bank lilo
+	field stackptr;sp
+	field ax#,cx#,bx#,dx# ;registers ax|cx expression, dx for loops
+	field zero;1 bit flags
+	field run
+	field duration
+	field durationcount
+	field processclk.clock ;used for process time slicing
+end type
+
+type varfloat
+     field name$
+     field id
+     field varcharbank
+end type
+
+type lab
+     field id
+end type
+
+; -----------------------------------------------------------------------------
+;SCRIPT FUNCTIONS & METHODS
+; -----------------------------------------------------------------------------
+function scriptstart(filename$)
+        scriptvert=reset
+        varfloatlist=createbank(0) ;setup varfloatlist
+        lablist=createbank(0) ;setup lablist
+	scriptfile = readfile(filename$+".basic")
+	opfile=writefile(filename$+".op")
+	if scriptfile
+		opfilewrite(";parsing & compiling "+filename$+".basic")
+                ;new script
+		;thisscript.script=scriptnew(exec_infinite)
+		t=token_get();start compile script
+		repeat
+			;color 255,0,0
+			;opfilewrite(";"+token$+scriptline$)
+			;color 0,255,255
+			t=parsestmt(t)
+		until scriptend
+		scriptend=false
+		;compress opcode, resolve labels
+		varfloatlistsize()
+		labresolve()
+                writeinstructions();testing
+                closefile(opfile)
+		closefile(scriptfile)
+	else
+		runtimeerror (filaname$+".basic failed to load!!")
+	endif
+end function
+
+function scriptstop()
+         for eachscript.script = each script
+             scriptdelete(eachscript)
+         next
+         ;delete varfloats,varfloatlist
+         if varfloatlist freebank varfloatlist
+         varfloatlist=reset
+         ;delete lab,lablist
+         if lablist freebank lablist
+         lablist=reset
+end function
+
+function scriptnew.script(kind=exec_infinite)
+	thisscript.script=new script
+        thisscript\kind=kind
+
+        ;register script
+        for scriptid = 1 to maxscript;1
+             if scriptref(scriptid)=null
+                thisscript\id=scriptid
+                scriptref(thisscript\id)=thisscript
+                exit
+            endif
+        next
+        if not(thisscript\id) GAME_ERROR("Script Max Exceeded!")
+
+        opfilewrite("")
+        opfilewrite(";scriptnew["+str(thisscript\id)+"]")
+	thisscript\instruction=createbank(0)
+	thisscript\argstack=createbank(128) ;32*double
+        thisscript\stack=createbank(128) ;32*double
+	return thisscript
+end function
+
+function scriptdelete(thisscript.script)
+        freebank(thisscript\stack)
+        freebank(thisscript\argstack)
+	freebank(thisscript\instruction)
+	delete thisscript
+end function
+
+function scriptmanager()
+         for currentscript.script = each script
+             ;process scriptmanager
+             if currentscript\run
+                repeat
+                      optree()
+                      select currentscript\kind
+                             case exec_timed
+                                  if currentscript\instructionptr=banksize(currentscript\instruction)
+                                        currentscript\instructionptr=reset
+                                        nextscript=true
+                                        currentscript\durationcount=currentscript\durationcount+1
+                                        if currentscript\durationcount=currentscript\duration scriptdelete(currentscript)
+                                  endif
+                             case exec_infinite
+                                  if currentscript\instructionptr=banksize(currentscript\instruction)
+                                     currentscript\instructionptr=reset
+                                     nextscript=true
+                                  endif
+                        end select
+                 until nextscript
+                 nextscript=reset
+             endif
+         next
+end function
+
+function loadscript(filename$="console2")
+   scriptstop()
+   clearworld(true,true,true)
+   scriptstart(filename$)
+   scriptref(1)\kind=exec_timed ;declaration script
+   scriptref(1)\duration=1
+   dumpvarfloats()
+end function
+
+function execscript(tf)
+   for eachscript.script = each script
+    eachscript\run = tf
+   next
+end function
+
+function togglescript()
+   for eachscript.script = each script
+    eachscript\run = 1-eachscript\run
+   next
+end function
+
+; -----------------------------------------------------------------------------
+;PARSER & COMPILER METHODS
+; -----------------------------------------------------------------------------
+function currch$()
+	if scriptline$=""
+	   scriptline$=readline(scriptfile)+" " ;read next line
+	   scriptvert=scriptvert+1;syntax error checking
+	   scripthort=reset
+	endif
+	return left(scriptline$,1)
+end function
+
+function nextch()
+	scriptline$=mid(scriptline$,2)
+	scripthort=scripthort+1;syntax error checking
+end function
+
+function token_get()
+	repeat
+	      token$=currch$()
+	      nextch()
+	until token$<>" "
+
+	if token$>="0" and token$<="9" or token$="." ;numerical values
+		repeat
+			t$=currch$()
+			if t$<>"." and (t$<"0" or t$>"9") return TOKEN_CONST
+			token$=token$+t$
+			nextch()
+		forever
+	endif
+
+        ;comments
+      	if token$=chr(34);open comments
+      	        token$=""
+      		repeat
+      			t$=currch$()
+      			if t$=chr(34)
+                              nextch()
+                              return TOKEN_TEXT;close comment
+                        endif
+      			token$=token$+t$
+      			nextch()
+      		forever
+      	endif
+
+	if (token$>="a" and token$<="z") or (token$>="A" and token$<="Z")  ;keywords, variables, functions, strings
+		repeat
+			t$=currch$()
+			if t$="$"
+			   token$=token$+t$
+			   nextch()
+                           return TOKEN_STRING
+                        endif
+			if (t$<"a" or t$>="z") and (t$<"A" or t$>="Z") and (t$<"0" or t$>="9")  and t$<>"_" and t$<>"\"
+			        select token$
+					;*** basic keywords ***
+					case "end" return TOKEN_END
+					case "if" return TOKEN_IF
+					case "then" return TOKEN_THEN
+					case "else" return TOKEN_ELSE
+					case "for" return TOKEN_FOR
+					case "to" return TOKEN_TO
+					case "step" return TOKEN_STEP
+					case "next" return TOKEN_NEXT
+					case "script" return TOKEN_SCRIPT
+					case "endscript" return TOKEN_ENDSCRIPT
+					default
+						TOKEN_CALL=call(token$)
+						if TOKEN_CALL return TOKEN_CALL
+				end select
+                                return TOKEN_VAR
+			endif
+                        token$=token$+t$
+			nextch()
+		forever
+	endif
+
+
+	  
+	select token$
+		case "+" return TOKEN_ADD
+		case "-" return TOKEN_SUB
+		case "*" 
+ 			if currch$()="/" nextch() :return TOKEN_CLOSECOMMENT
+                        return TOKEN_MUL
+		case "/"
+		        if currch$()="/" nextch() :return TOKEN_COMMENT
+ 			if currch$()="*" nextch() :return TOKEN_OPENCOMMENT
+                        return TOKEN_DIV
+		case "(" return TOKEN_OPENPAR
+		case ")" return TOKEN_CLOSEPAR
+		case "," return TOKEN_COMMA
+		case ":" return TOKEN_COLON
+        	case "[" return TOKEN_OPENBRACKET
+		case "]" return TOKEN_CLOSEBRACKET
+		case chr(58) return TOKEN_OPENQUOTE
+		case "="
+			if currch$()="<" nextch() :return TOKEN_LE
+			if currch$()=">" nextch() :return TOKEN_GE
+			return TOKEN_EQ
+		case "<"
+			if currch$()="=" nextch() :return TOKEN_LE
+			if currch$()=">" nextch() :return TOKEN_NE
+			if currch$()="<" nextch() :return TOKEN_SHL
+			return TOKEN_LT
+		case ">"
+			if currch$()="=" nextch() :return TOKEN_GE
+			if currch$()="<" nextch() :return TOKEN_NE
+			if currch$()=">" nextch() :return TOKEN_SHR
+			return TOKEN_GT
+	end select
+	syntaxerror("Syntax Error: Unrecognized Statement")
+end function
+
+function parsestmt(t)
+	select t
+                case TOKEN_VAR
+                        id$=token$
+    			varfloatadd(token$)
+    			if token_get()<>TOKEN_EQ syntaxerror("Syntax Error: Expected '='")
+    			t=parseexpr()
+    			opfilewrite("mova ["+id$+"],ax")
+                        instructionadd(0,call("mova")):instructionadd(short,varfloatfind(id$))
+                case TOKEN_STRING
+                        id$=token$
+    			varcharadd(token$)
+    			if token_get()<>TOKEN_EQ syntaxerror("Syntax Error: Expected '='")
+    			t=parseexpr()
+    			opfilewrite("movas ["+id$+"],ax")
+                        instructionadd(0,call("movas")):instructionadd(short,varfloatfind(id$))
+		case TOKEN_IF
+			if parseexpr()<>TOKEN_THEN syntaxerror("Syntax Error: Expected 'Then'")
+			;labid=labid+1   ;labels store instruction ptr reference
+			lab1.lab=labnew()
+                        ;lab=labid
+                        ;lab1\id=labid
+
+			opfilewrite("jez ["+lab1\id+"]") 
+                        instructionadd(0,call("jez")):instructionadd(short,lab1\id)
+
+			t=parsestmt(token_get())
+			if t=TOKEN_ELSE
+				;labid=labid+1
+				lab2.lab=labnew()
+				;lab2\id=labid
+				opfilewrite("jmp ["+lab2\id+"]") 
+                                instructionadd(0,call("jmp")):instructionadd(short,lab2\id)
+				opfilewrite("lab ["+lab1\id+"]") 
+                                instructionadd(0,call("lab")):instructionadd(short,lab1\id)
+				t=parsestmt(token_get())
+				;lab=lab2
+				lab1=lab2
+                        endif
+			opfilewrite("lab ["+lab1\id+"]") 
+                        instructionadd(0,call("lab")):instructionadd(short,lab1\id)
+		case TOKEN_CALL
+                        opfilewrite("pshc ["+str(TOKEN_CALL)+"]") 
+                        instructionadd(0,call("pshc")):instructionadd(short,TOKEN_CALL)
+                        if token_get()<>TOKEN_OPENPAR SyntaxError("Syntax Error: Expected '('")
+			t=parsearg()
+                        opfilewrite("popc") 
+                        instructionadd(0,call("popc")):;pop call; pop args into calltree; ax=return
+		case TOKEN_END
+                        opfilewrite("")
+			opfilewrite("ret")
+			for eachvarfloat.varfloat=each varfloat
+				opfilewrite("dd ["+eachvarfloat\name+"]")
+			next
+			opfilewrite("end")
+			scriptend=true
+		case TOKEN_FOR
+		case TOKEN_TO
+		case TOKEN_STEP
+		case TOKEN_NEXT
+		case TOKEN_SCRIPT
+                	currentscript.script=scriptnew(exec_infinite)
+                	if token_get()<>TOKEN_VAR syntaxerror("Syntax Error: Expected Script Name")
+                	currentscript\name$=token$
+                	t=parsestmt(token_get())
+                case TOKEN_ENDSCRIPT
+                        currentscript\instructionptr=reset
+                        t=parsestmt(token_get())
+                case TOKEN_OPENCOMMENT
+                      repeat
+                           t=token_get();ignore comments
+                           if t=TOKEN_CLOSECOMMENT exit;close comment
+                     forever
+                     t=token_get()
+                case TOKEN_COMMENT
+                     scriptline$=""
+                     t=token_get()
+		default
+			syntaxerror("Syntax Error: Unrecognized Keyword '"+str(t)+"'")
+	end select
+	return t
+end function
+
+function parseexpr()
+	return parsecomp()
+end function
+
+function parsecomp()
+	t=parseterm()
+	repeat
+		select t
+			case TOKEN_LT op$="lt";these ops are wrong! x86 is weird!
+			case TOKEN_GT op$="gt"
+			case TOKEN_LE op$="le"
+			case TOKEN_GE op$="ge"
+			case TOKEN_EQ op$="eq"
+			case TOKEN_NE op$="ne"
+			default
+				return t
+		end select
+		opfilewrite("psh ax") 
+                instructionadd(0,call("psh"))
+		t=parseterm()
+		opfilewrite("pop cx") 
+                instructionadd(0,call("pop"))
+		opfilewrite("s"+op$+" cx,ax") 
+                instructionadd(0,call("s"+op$))
+	forever
+end function
+
+function parseterm()
+	t=parsefact()
+	repeat
+		select t
+			case TOKEN_ADD
+				opfilewrite("psh ax") 
+                                instructionadd(0,call("psh"))
+				t=parsefact()
+				opfilewrite("pop cx") 
+                                instructionadd(0,call("pop"))
+				opfilewrite("add ax,cx") 
+                                instructionadd(0,call("add"))
+			case TOKEN_SUB
+				opfilewrite("psh ax") 
+                                instructionadd(0,call("psh"))
+				t=parsefact()
+				opfilewrite("mov cx,ax") 
+                                instructionadd(0,call("mov"))
+				opfilewrite("pop ax") 
+                                instructionadd(0,call("popax"))
+				opfilewrite("sub ax,cx") 
+                                instructionadd(0,call("sub"))
+			default
+				return t
+		end select
+	forever
+end function
+
+function parsefact()
+	t=parseleaf()
+	repeat
+		select t
+			case TOKEN_MUL
+				opfilewrite("psh ax") 
+                                instructionadd(0,call("psh"))
+				t=parseleaf()
+				opfilewrite("pop cx") 
+                                instructionadd(0,call("pop"))
+				opfilewrite("mul ax,cx") 
+                                instructionadd(0,call("mul"))
+			case TOKEN_DIV
+				opfilewrite("psh ax") 
+                                instructionadd(0,call("psh"))
+				t=parseleaf()
+				opfilewrite("mov cx,ax") 
+                                instructionadd(0,call("mov"))
+				opfilewrite("pop cx") 
+                                instructionadd(0,call("pop"))
+				opfilewrite("div ax,cx") 
+                                instructionadd(0,call("psh"))
+			case TOKEN_SHL
+				opfilewrite("psh ax") 
+                                instructionadd(0,call("psh"))
+				t=parseleaf()
+				opfilewrite("pop cx") 
+                                instructionadd(0,call("pop"))
+				opfilewrite("shl ax,cx") 
+                                instructionadd(0,call("shl"))
+			case TOKEN_SHR
+				opfilewrite("psh ax") 
+                                instructionadd(0,call("psh"))
+				t=parseleaf()
+				opfilewrite("pop cx") 
+                                instructionadd(0,call("pop"))
+				opfilewrite("shr ax,cx") 
+                                instructionadd(0,call("shr"))
+			default
+				return t
+		end select
+	forever
+end function
+
+function parseleaf()
+	t=token_get()
+	select t
+		case TOKEN_SUB
+			t=parseleaf()
+			opfilewrite("neg ax") 
+                        instructionadd(0,call("neg"))
+		case TOKEN_OPENPAR
+			if parseexpr()<>TOKEN_CLOSEPAR syntaxerror("Syntax Error: Expected '('")
+			t=token_get()
+		case TOKEN_VAR
+			varfloatadd( token$ )
+	        	opfilewrite("movv ax,["+token$+"]")
+                        instructionadd(0,call("movv")) :instructionadd(0,varfloatfind(token$))
+			t=token_get()
+		case TOKEN_STRING
+                        varfloatadd( token$ )
+	        	opfilewrite("movsa ax,["+token$+"]")
+                        instructionadd(0,call("movsa")) :instructionadd(0,varfloatfind(token$))
+			t=token_get()
+		case TOKEN_CONST
+			opfilewrite("movc ax,"+token$) 
+                        instructionadd(0,call("movc")) :instructionadd(0,float(token$))
+			t=token_get()
+		case TOKEN_TEXT
+			opfilewrite("movs ax,"+token$)
+                        instructionadd(0,call("movs")) :instructionadd(0,float(token$))
+			t=token_get()
+		case TOKEN_OPENBRACKET
+		case TOKEN_CALL
+                        opfilewrite("pshc ["+str(TOKEN_CALL)+"]")
+                        instructionadd(0,call("pshc")) :instructionadd(0,TOKEN_CALL)
+                        if token_get()<>TOKEN_OPENPAR SyntaxError("Syntax Error: Expected '('")
+			t=parsearg()
+                        opfilewrite("popc") 
+                        instructionadd(0,call("popc"));pop call; pop args into calltree; ax=return
+		default
+			syntaxerror("Syntax Error: Parsing Leaf")
+	end select
+	return t
+end function
+
+function parsearg()
+	repeat
+		t=parseexpr()
+		select t
+			case TOKEN_COMMA,TOKEN_CLOSEPAR
+				select token$;datatype
+					default
+						i=i+1
+						opfilewrite("psha ax ;{"+str(i)+"}") 
+                                                instructionadd(0,call("psha"))
+        			end select
+				if t=TOKEN_CLOSEPAR
+				   ;opfilewrite("mov args["+str(i)+"]")
+                                   for loop = i to 1 step -1
+				       opfilewrite("popa ["+str(loop)+"]") 
+                                       instructionadd(0,call("popa")):instructionadd(0,loop)
+				   next
+                                   return token_get()
+                                endif
+			default
+                        	syntaxerror("Syntax Error: Parsing Argument '"+token$+"'"+"="+str(t))
+		end select
+	forever
+end function
+
+function instructionadd(datatype,val#) ;to replace opfilewrite
+         ;calculate newsize new size
+
+         ;resize
+         ;write bytes to currentscript\instruction bank
+                ;[datatype][op|par]
+
+         ;select datatype
+                ;case byte
+                     ;resizebank(currentscript\instruction,banksize(currentscript\instruction)+2);[datatype][par]
+                     ;pokebytetest(currentscript\instruction,currentscript\instructionptr,datatype)
+                     ;currentscript\instructionptr=currentscript\instructionptr+1
+                     ;pokebytetest(currentscript\instruction,currentscript\instructionptr,limitint(int(val$),0,255))
+                     ;currentscript\instructionptr=currentscript\instructionptr+1
+
+                ;case short
+                     ;resizebank(currentscript\instruction,banksize(currentscript\instruction)+3);[datatype][par]
+                     ;pokebytetest(currentscript\instruction,currentscript\instructionptr,datatype)
+                     ;currentscript\instructionptr=currentscript\instructionptr+1
+                     ;pokeshorttest(currentscript\instruction,currentscript\instructionptr,limitint(int(val$),0,255))
+                     ;currentscript\instructionptr=currentscript\instructionptr+2
+
+                ;case integer
+                     ;resizebank(currentscript\instruction,banksize(currentscript\instruction)+3);[datatype][par]
+                     ;pokebytetest(currentscript\instruction,currentscript\instructionptr,datatype)
+                     ;currentscript\instructionptr=currentscript\instructionptr+1
+                     ;pokeshorttest(currentscript\instruction,currentscript\instructionptr,limitint(int(val$),0,255))
+                     ;currentscript\instructionptr=currentscript\instructionptr+4
+
+                ;case double
+                     
+                     resizebank(currentscript\instruction,banksize(currentscript\instruction)+5);[datatype][par]
+                     opfilewrite("    ;instr:"+str(banksize(currentscript\instruction)))
+                     opfilewrite("          ;datatype "+str(currentscript\instructionptr)+":"+str(datatype))
+                     pokebytetest(currentscript\instruction,currentscript\instructionptr,datatype)
+                     currentscript\instructionptr=currentscript\instructionptr+1
+                     opfilewrite("          ;value "+str(currentscript\instructionptr)+":"+str(val#))
+                     pokefloattest(currentscript\instruction,currentscript\instructionptr,val)
+                     currentscript\instructionptr=currentscript\instructionptr+4
+
+                ;case char
+                ;     resizebank(currentscript\instruction,size+1+len(val$))
+                ;     pokebytetest(currentscript\instruction,currentscript\instructionptr,datatype)
+                     ;currentscript\instructionptr=currentscript\instructionptr+1
+                ;     pokestring(currentscript\instruction,currentscript\instructionptr,val$)
+                     ;currentscript\instructionptr=currentscriptinstructionptr+len(val$)
+
+         ;end select
+end function
+
+function varfloatadd(name$)
+	for eachvarfloat.varfloat=each varfloat
+		if eachvarfloat\name=name return
+	next
+	thisvarfloat.varfloat=new varfloat
+	thisvarfloat\name=name
+        varfloatid=varfloatid+1
+	thisvarfloat\id=varfloatid
+end function
+
+function varfloatfind(s$)
+	for eachvarfloat.varfloat=each varfloat
+		if eachvarfloat\name=s return eachvarfloat\id
+	next
+end function
+
+function varfloatget(s$)
+	for eachvarfloat.varfloat=each varfloat
+		if eachvarfloat\name=s return peekfloattest(varfloatlist,eachvarfloat\id shl 2)
+        next
+end function
+
+function varfloatlistsize()
+         resizebank(varfloatlist,4)
+         for eachvarfloat.varfloat = each varfloat
+             resizebank(varfloatlist,banksize(varfloatlist)+4)
+         next
+end function
+
+function varcharadd(name$)
+	for eachvarfloat.varfloat=each varfloat
+		if eachvarfloat\name=name return
+	next
+	thisvarfloat.varfloat=new varfloat
+	thisvarfloat\name=name
+        varfloatid=varfloatid+1
+	thisvarfloat\id=varfloatid
+	thisvarfloat\varcharbank=createbank(0)
+end function
+
+function varcharbankget(s$)
+	for eachvarfloat.varfloat=each varfloat
+		if eachvarfloat\name=s return eachvarfloat\varcharbank
+        next
+end function
+
+function varchartextget(s$) ;match text to find varcharbank used for text constants
+	for eachvarfloat.varfloat=each varfloat
+
+		if eachvarfloat\name=s return eachvarfloat\varcharbank
+        next
+end function
+
+function labnew.lab()
+         labid=labid+1
+         thislab.lab = new lab
+         thislab\id=labid
+         return thislab
+end function
+
+function labresolve()
+         ;reset labid
+         labid=reset
+         resizebank(lablist,2)  ;resize bank
+         pokeshorttest(lablist,0,labid)
+         ;resolving labels
+         for currentscript.script=each script
+             opfilewrite("")
+             opfilewrite("resolve labels["+str(currentscript\id)+"]")
+                 repeat
+                       ;opfilewrite(str(peekbytetest(currentscript\instruction,currentscript\instructionptr))+":"+str(peekfloattest(currentscript\instruction,currentscript\instructionptr+1)))
+                       if peekfloattest(currentscript\instruction,currentscript\instructionptr+1)=call("lab")
+                          opfilewrite("lab[" + int(str(peekfloattest(currentscript\instruction,currentscript\instructionptr+6))) + "] @ ip " + str(currentscript\instructionptr+1) + " jumps to instruction " + str(currentscript\instructionptr+10))
+                          resizebank(lablist,banksize(lablist)+2)
+                          pokeshorttest(lablist,peekfloattest(currentscript\instruction,currentscript\instructionptr+6) shl 1,currentscript\instructionptr+10)
+                          opfilewrite("lablist["+ int(str(peekfloattest(currentscript\instruction,currentscript\instructionptr+6))) + "]=ip:"+str(currentscript\instructionptr+10)+", offset="+str(peekfloattest(currentscript\instruction,currentscript\instructionptr+6) shl 1))
+                       end if
+                       currentscript\instructionptr=currentscript\instructionptr+5
+                 until currentscript\instructionptr=banksize(currentscript\instruction)
+                 currentscript\instructionptr=reset
+         next
+         ;dumplab testing
+         dumplabs()
+         ;cleanup
+         for eachlab.lab = each lab
+             delete eachlab
+         next
+end function
+
+function syntaxerror(msg$="Syntax Error: Unknown")
+	closefile(opfile)
+	closefile(scriptfile)
+	runtimeerror msg$+" Ln:"+str(scriptvert)+", Col:"+str(scripthort)
+end function
+
+function call(s$)
+	select s$
+
+                ;BLITZ
+		case "accepttcpstream" return 1
+		case "acos" return 2
+		case "addanimseq" return 3
+		case "addmesh" return 4
+		case "addtriangle" return 5
+		case "addvertex" return 6
+		case "aligntovector" return 7
+		case "ambientlight" return 8
+		case "animate" return 9
+		case "animatemd2" return 10
+		case "animating" return 11
+		case "animlength" return 12
+		case "animseq" return 13
+		case "animtime" return 14
+		case "antialias" return 15
+		case "apptitle" return 16
+		case "asc" return 17
+		case "asin" return 18
+		case "atan" return 19
+		case "atan2" return 20
+		case "automidhandle" return 21
+		case "availvidmem" return 22
+		case "backbuffer" return 23
+		case "banksize" return 24
+		case "bin" return 25
+		case "brushalpha" return 26
+		case "brushblend" return 27
+		case "brushfx" return 28
+		case "brushshininess" return 29
+		case "brushtexture" return 30
+		case "bspambientlight" return 31
+		case "bsplighting" return 32
+		case "cameraclscolor" return 33
+		case "cameraclsmode" return 34
+		case "camerafogcolor" return 35
+		case "camerafogmode" return 36
+		case "camerafogrange" return 37
+		case "camerapick" return 38
+		case "cameraproject" return 39
+		case "camerarange" return 40
+		case "cameraviewport" return 41
+		case "camerazoom" return 42
+		case "captureworld" return 43
+		case "ceil" return 44
+		case "changedir" return 45
+		case "channelpan" return 46
+		case "channelpitch" return 47
+		case "channelplaying" return 48
+		case "channelvolume" return 49
+		case "chr" return 50
+		case "clearcollisions" return 51
+		case "clearsurface" return 52
+		case "cleartexturefilters" return 53
+		case "clearworld" return 54
+		case "closedir" return 55
+		case "closefile" return 56
+		case "closetcpserver" return 57
+		case "closetcpstream" return 58
+		case "closeudpstream" return 59
+		case "cls" return 60
+		case "clscolor" return 61
+		case "collisionentity" return 62
+		case "collisionnx" return 63
+		case "collisionny" return 64
+		case "collisionnz" return 65
+		case "collisions" return 66
+		case "collisionsurface" return 67
+		case "collisiontime" return 68
+		case "collisiontriangle" return 69
+		case "collisionx" return 70
+		case "collisiony" return 71
+		case "collisionz" return 72
+		case "color" return 73
+		case "colorblue" return 74
+		case "colorgreen" return 75
+		case "colorred" return 76
+		case "commandline" return 77
+		case "copybank" return 78
+		case "copyentity" return 79
+		case "copyfile" return 80
+		case "copyimage" return 81
+		case "copypixel" return 82
+		case "copypixelfast" return 83
+		case "copyrect" return 84
+		case "copystream" return 85
+		case "cos" return 86
+		case "countchildren" return 87
+		case "countcollisions" return 88
+		case "countgfxdrivers" return 89
+		case "countgfxmodes" return 90
+		case "counthostips" return 91
+		case "countsurfaces" return 92
+		case "counttriangles" return 93
+		case "countvertices" return 94
+		case "createbank" return 95
+		case "createbrush" return 96
+		case "createcamera" return 97
+		case "createcone" return 98
+		case "createcube" return 99
+		case "createcylinder" return 100
+		case "createdir" return 101
+		case "createimage" return 102
+		case "createlight" return 103
+		case "createlistener" return 104
+		case "createmesh" return 105
+		case "createnetplayer" return 106
+		case "createpivot" return 107
+		case "createplane" return 108
+		case "createsphere" return 109
+		case "createsprite" return 110
+		case "createsurface" return 111
+		case "createtcpserver" return 112
+		case "createterrain" return 113
+		case "createtimer" return 114
+		case "createudpstream" return 115
+		case "currentdate" return 116
+		case "currentdir" return 117
+		case "currenttime" return 118
+		case "debuglog" return 119
+		case "delay" return 120
+		case "deletedir" return 121
+		case "deletefile" return 122
+		case "deletenetplayer" return 123
+		case "dither" return 124
+		case "dottedip" return 125
+		case "drawblock" return 126
+		case "drawblockrect" return 127
+		case "drawimage" return 128
+		case "drawimagerect" return 129
+		case "emitsound" return 130
+		case "end" return 131
+		case "entityalpha" return 132
+		case "entityautofade" return 133
+		case "entityblend" return 134
+		case "entitybox" return 135
+		case "entitycollided" return 136
+		case "entitycolor" return 137
+		case "entitydistance" return 138
+		case "entityfx" return 139
+		case "entityinview" return 140
+		case "entityname" return 141
+		case "entityorder" return 142
+		case "entityparent" return 143
+		case "entitypick" return 144
+		case "entitypickmode" return 145
+		case "entitypitch" return 146
+		case "entityradius" return 147
+		case "entityroll" return 148
+		case "entityshininess" return 149
+		case "entitytexture" return 150
+		case "entitytype" return 151
+		case "entityvisible" return 152
+		case "entityx" return 153
+		case "entityy" return 154
+		case "entityyaw" return 155
+		case "entityz" return 156
+		case "eof" return 157
+		case "execfile" return 158
+		case "exp" return 159
+		case "filepos" return 160
+		case "filesize" return 161
+		case "filetype" return 162
+		case "findchild" return 163
+		case "findsurface" return 164
+		case "fitmesh" return 165
+		case "flip" return 166
+		case "flipmesh" return 167
+		case "floor" return 168
+		case "flushjoy" return 169
+		case "flushkeys" return 170
+		case "flushmouse" return 171
+		case "fontheight" return 172
+		case "fontwidth" return 173
+		case "freebank" return 174
+		case "freebrush" return 175
+		case "freeentity" return 176
+		case "freefont" return 177
+		case "freeimage" return 178
+		case "freesound" return 179
+		case "freetexture" return 180
+		case "freetimer" return 181
+		case "frontbuffer" return 182
+		case "getchild" return 183
+		case "getcolor" return 184
+		case "getentitytype" return 185
+		case "getjoy" return 186
+		case "getkey" return 187
+		case "getmouse" return 188
+		case "getparent" return 189
+		case "getsurface" return 190
+		case "gfxdriver3d" return 191
+		case "gfxdrivername" return 192
+		case "gfxmode3d" return 193
+		case "gfxmode3dexists" return 194
+		case "gfxmodedepth" return 195
+		case "gfxmodeexists" return 196
+		case "gfxmodeheight" return 197
+		case "gfxmodewidth" return 198
+		case "grabimage" return 199
+		case "graphics3d" return 200
+		case "graphicsbuffer" return 201
+		case "graphicsdepth" return 202
+		case "graphicsheight" return 203
+		case "graphicswidth" return 204
+		case "handleimage" return 205
+		case "handlesprite" return 206
+		case "hex" return 207
+		case "hideentity" return 208
+		case "hidepointer" return 209
+		case "hostip" return 210
+		case "hostnetgame" return 211
+		case "hwmultitex" return 212
+		case "imagebuffer" return 213
+		case "imageheight" return 214
+		case "imagerectcollide" return 215
+		case "imagerectoverlap" return 216
+		case "imagescollide" return 217
+		case "imagesoverlap" return 218
+		case "imagewidth" return 219
+		case "imagexhandle" return 220
+		case "imageyhandle" return 221
+		case "input" return 222
+		case "instr" return 223
+		case "joinnetgame" return 224
+		case "joyx" return 225
+		case "joyxdir" return 226
+		case "joyy" return 227
+		case "joyydir" return 228
+		case "joyz" return 229
+		case "joyzdir" return 230
+		case "keydown" return 231
+		case "keyhit" return 232
+		case "left" return 233
+		case "len" return 234
+		case "lightcolor" return 235
+		case "lightmesh" return 236
+		case "lightrange" return 237
+		case "line" return 238
+		case "linepick" return 239
+		case "load3dsound" return 240
+		case "loadanimimage" return 241
+		case "loadanimmesh" return 242
+		case "loadanimseq" return 243
+		case "loadanimtexture" return 244
+		case "loadbrush" return 245
+		case "loadbsp" return 246
+		case "loadbuffer" return 247
+		case "loadermatrix" return 248
+		case "loadfont" return 249
+		case "loadimage" return 250
+		case "loadmd2" return 251
+		case "loadmesh" return 252
+		case "loadsound" return 253
+		case "loadsprite" return 254
+		case "loadterrain" return 255
+		case "loadtexture" return 256
+		case "lockbuffer" return 257
+		case "log" return 258
+		case "log10" return 259
+		case "loopsound" return 260
+		case "lower" return 261
+		case "lset" return 262
+		case "maskimage" return 263
+		case "md2animating" return 264
+		case "md2animlength" return 265
+		case "md2animtime" return 266
+		case "meshdepth" return 267
+		case "meshesintersect" return 268
+		case "meshheight" return 269
+		case "meshwidth" return 270
+		case "mid" return 271
+		case "midhandle" return 272
+		case "millisecs" return 273
+		case "modifyterrain" return 274
+		case "mousedown" return 275
+		case "mousehit" return 276
+		case "mousex" return 277
+		case "mousexspeed" return 278
+		case "mousey" return 279
+		case "mouseyspeed" return 280
+		case "mousez" return 281
+		case "mousezspeed" return 282
+		case "moveentity" return 283
+		case "movemouse" return 284
+		case "nameentity" return 285
+		case "netmsgdata" return 286
+		case "netmsgfrom" return 287
+		case "netmsgto" return 288
+		case "netmsgtype" return 289
+		case "netplayerlocal" return 290
+		case "netplayername" return 291
+		case "nextfile" return 292
+		case "openfile" return 293
+		case "opentcpstream" return 294
+		case "origin" return 295
+		case "oval" return 296
+		case "paintentity" return 297
+		case "paintmesh" return 298
+		case "paintsurface" return 299
+		case "pausechannel" return 300
+		case "peekbyte" return 301
+		case "peekfloat" return 302
+		case "peekint" return 303
+		case "peekshort" return 304
+		case "pickedentity" return 305
+		case "pickednx" return 306
+		case "pickedny" return 307
+		case "pickednz" return 308
+		case "pickedsurface" return 309
+		case "pickedtime" return 310
+		case "pickedtriangle" return 311
+		case "pickedx" return 312
+		case "pickedy" return 313
+		case "pickedz" return 314
+		case "playcdtrack" return 315
+		case "playmusic" return 316
+		case "playsound" return 317
+		case "plot" return 318
+		case "pointentity" return 319
+		case "pokebyte" return 320
+		case "pokefloat" return 321
+		case "pokeint" return 322
+		case "pokeshort" return 323
+		case "positionentity" return 324
+		case "positionmesh" return 325
+		case "positiontexture" return 326
+		case "print" return 327
+		case "projectedx" return 328
+		case "projectedy" return 329
+		case "projectedz" return 330
+		case "rand" return 331
+		case "readavail" return 332
+		case "readbyte" return 333
+		case "readbytes" return 334
+		case "readdir" return 335
+		case "readfile" return 336
+		case "readfloat" return 337
+		case "readint" return 338
+		case "readline" return 339
+		case "readpixel" return 340
+		case "readpixelfast" return 341
+		case "readshort" return 342
+		case "readstring" return 343
+		case "rect" return 344
+		case "rectsoverlap" return 345
+		case "recvnetmsg" return 346
+		case "recvudpmsg" return 347
+		case "replace" return 348
+		case "resetentity" return 349
+		case "resizebank" return 350
+		case "resizeimage" return 351
+		case "resumechannel" return 352
+		case "right" return 353
+		case "rnd" return 354
+		case "rotateentity" return 355
+		case "rotateimage" return 356
+		case "rotatemesh" return 357
+		case "rotatesprite" return 358
+		case "rotatetexture" return 359
+		case "rset" return 360
+		case "runtimeerror" return 361
+		case "savebuffer" return 362
+		case "saveimage" return 363
+		case "scaleentity" return 364
+		case "scaleimage" return 365
+		case "scalemesh" return 366
+		case "scalesprite" return 367
+		case "scaletexture" return 368
+		case "scanline" return 369
+		case "seedrnd" return 370
+		case "seekfile" return 371
+		case "sendnetmsg" return 372
+		case "sendudpmsg" return 373
+		case "setanimkey" return 374
+		case "setfont" return 375
+		case "setgfxdriver" return 376
+		case "showentity" return 377
+		case "showpointer" return 378
+		case "sin" return 379
+		case "soundpan" return 380
+		case "soundpitch" return 381
+		case "soundvolume" return 382
+		case "spriteviewmode" return 383
+		case "sqr" return 384
+		case "startnetgame" return 385
+		case "stop" return 386
+		case "stopchannel" return 387
+		case "stopnetgame" return 388
+		case "string" return 389
+		case "stringheight" return 390
+		case "stringwidth" return 391
+		case "systemproperty" return 392
+		case "tan" return 393
+		case "tcpstreamip" return 394
+		case "tcpstreamport" return 395
+		case "tcptimeouts" return 396
+		case "terraindetail" return 397
+		case "terrainheight" return 398
+		case "terrainshading" return 399
+		case "terrainsize" return 400
+		case "terrainx" return 401
+		case "terrainy" return 402
+		case "terrainz" return 403
+		case "text" return 404
+		case "textureblend" return 405
+		case "texturebuffer" return 406
+		case "texturecoords" return 407
+		case "texturefilter" return 408
+		case "textureheight" return 409
+		case "texturewidth" return 410
+		case "tformedx" return 411
+		case "tformedy" return 412
+		case "tformedz" return 413
+		case "tformfilter" return 414
+		case "tformimage" return 415
+		case "tformnormal" return 416
+		case "tformpoint" return 417
+		case "tformvector" return 418
+		case "tileblock" return 419
+		case "tileimage" return 420
+		case "totalvidmem" return 421
+		case "translateentity" return 422
+		case "trianglevertex" return 423
+		case "trim" return 424
+		case "trisrendered" return 425
+		case "turnentity" return 426
+		case "udpmsgip" return 427
+		case "udpmsgport" return 428
+		case "udpstreamip" return 429
+		case "udpstreamport" return 430
+		case "udptimeouts" return 431
+		case "unlockbuffer" return 432
+		case "updatenormals" return 433
+		case "updateworld" return 434
+		case "upper" return 435
+		case "vertexblue" return 436
+		case "vertexcolor" return 437
+		case "vertexcoords" return 438
+		case "vertexgreen" return 439
+		case "vertexnormal" return 440
+		case "vertexnx" return 441
+		case "vertexny" return 442
+		case "vertexnz" return 443
+		case "vertexred" return 444
+		case "vertextexcoords" return 445
+		case "vertexu" return 446
+		case "vertexv" return 447
+		case "vertexw" return 448
+		case "vertexx" return 449
+		case "vertexy" return 450
+		case "vertexz" return 451
+		case "viewport" return 452
+		case "vwait" return 453
+		case "waitjoy" return 454
+		case "waitkey" return 455
+		case "waitmouse" return 456
+		case "waittimer" return 457
+		case "wbuffer" return 458
+		case "windowed3d" return 459
+		case "wireframe" return 460
+		case "write" return 461
+		case "writebyte" return 462
+		case "writebytes" return 463
+		case "writefile" return 464
+		case "writefloat" return 465
+		case "writeint" return 466
+		case "writeline" return 467
+		case "writepixel" return 468
+		case "writepixelfast" return 469
+		case "writeshort" return 470
+		case "writestring" return 471
+		
+		;PLASMA
+		
+                ;OPCODE
+                case "mov" return 1024
+                case "mova" return 1025
+                case "movv" return 1026
+                case "movc" return 1027
+                case "psh" return 1028
+                case "pop" return 1029
+                case "popax" return 1030
+                case "pshc" return 1031
+                case "popc" return 1032
+                case "psha" return 1033
+                case "popa" return 1034
+                case "mul" return 1035
+                case "div" return 1036
+                case "neg" return 1037
+                case "add" return 1038
+                case "sub" return 1039
+                case "shl" return 1040
+                case "shr" return 1041
+                case "slt" return 1042
+                case "sgt" return 1043
+                case "sle" return 1044
+                case "sge" return 1045
+                case "seq" return 1046
+                case "sne" return 1047
+                case "jez" return 1048
+                case "jmp" return 1049
+                case "lab" return 1050
+                case "movs" return 1051
+                case "movas" return 1052
+                case "movsa" return 1053
+
+	end select
+end function
+
+;-----------------------------------------------------------------------------
+;PARSER & COMPILER UTILITY METHODS
+;-----------------------------------------------------------------------------
+
+function opfilewrite(s$)
+	;print(s$)
+	writeline(opfile,s$)
+end function
+
+function writeinstructions() ;utility
+         for currentscript.script=each script
+             opfilewrite("")
+             opfilewrite("compiled instruction["+str(currentscript\id)+"]")
+                 repeat
+                       opfilewrite(str(peekbytetest(currentscript\instruction,currentscript\instructionptr))+":"+str(peekfloattest(currentscript\instruction,currentscript\instructionptr+1)))
+                       currentscript\instructionptr=currentscript\instructionptr+5
+                 until currentscript\instructionptr=banksize(currentscript\instruction)
+                 currentscript\instructionptr=reset
+         next
+end function
+
+function dumpinstructions() ;utility
+         for currentscript.script=each script
+                 debuglog "dump instructions"
+                 repeat
+
+                       debuglog str(peekbytetest(currentscript\instruction,currentscript\instructionptr))+":"+str(peekfloattest(currentscript\instruction,currentscript\instructionptr+1))
+                       currentscript\instructionptr=currentscript\instructionptr+5
+                 until currentscript\instructionptr=banksize(currentscript\instruction)
+                 currentscript\instructionptr=reset
+         next
+end function
+
+function dumplabs() ;utility
+         debuglog ""
+         debuglog "dump labs"
+         for eachlab.lab = each lab
+             n=n+1
+             debuglog "lab["+str(n)+"]"+str(peekshorttest(lablist,n shl 1))
+
+         next
+end function
+
+function dumpvarfloats() ;utility
+         debuglog ""
+         debuglog "dump varfloat"
+         for eachvarfloat.varfloat = each varfloat
+             n=n+1
+             debuglog eachvarfloat\name$+"="+str(peekfloattest(varfloatlist,n shl 2))
+         next
+end function
+
+;-----------------------------------------------------------------------------
+;COMPILED OPCODE METHODS
+;-----------------------------------------------------------------------------
+
+function optree()
+         select peekfloattest(currentscript\instruction,currentscript\instructionptr+1)
+               ;x86 Assembly opcodes methods
+               case 1024 ;mov ;assigns script\ax# value to script\cx#
+                    currentscript\cx#=currentscript\ax#
+                    currentscript\instructionptr=currentscript\instructionptr+5 ;inc to next instruction
+               case 1025 ;mova(var) ;assigns script\ax# value to var
+                    pokefloattest(varfloatlist,peekfloattest(currentscript\instruction,currentscript\instructionptr+6) shl 2,currentscript\ax#)
+                    currentscript\instructionptr=currentscript\instructionptr+10
+               case 1026 ;movv(var) ;assigns var value to script\ax#
+                    currentscript\ax#=peekfloattest(varfloatlist,peekfloattest(currentscript\instruction,currentscript\instructionptr+6) shl 2)
+                    currentscript\instructionptr=currentscript\instructionptr+10
+               case 1027 ;movc(const) ;assigns const value to script\ax#
+                    currentscript\ax#=peekfloattest(currentscript\instruction,currentscript\instructionptr+6)
+                    currentscript\instructionptr=currentscript\instructionptr+10
+               case 1028 ;psh ;pushes script\ax# value to script\stack
+                    pokefloattest(currentscript\stack,currentscript\stackptr,currentscript\ax#)
+                    currentscript\stackptr=currentscript\stackptr+4
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1029 ;pop ;pops top script\stack value to script\cx#
+                    currentscript\stackptr=currentscript\stackptr-4
+                    currentscript\cx#=peekfloattest(currentscript\stack,currentscript\stackptr)
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1030 ;popax ;pops top script\stack value to script\ax#
+                    currentscript\stackptr=currentscript\stackptr-4
+                    currentscript\ax#=peekfloattest(currentscript\stack,currentscript\stackptr)
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1031 ;pshc ;pushes call value to script\stack
+                    pokefloattest(currentscript\stack,currentscript\stackptr,peekfloattest(currentscript\instruction,currentscript\instructionptr+6))
+                    currentscript\stackptr=currentscript\stackptr+4
+                    currentscript\instructionptr=currentscript\instructionptr+10
+               case 1032 ;popc ;pops script\stack value to call,executes
+                    currentscript\stackptr=currentscript\stackptr-4
+                    currentscript\arg#[0]=peekfloattest(currentscript\stack,currentscript\stackptr);(method)
+                    calltree()
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1033 ;psha ;pushes script\ax value to argstack
+                    pokefloattest(currentscript\argstack,currentscript\argstackptr,currentscript\ax#)
+                    currentscript\argstackptr=currentscript\argstackptr+4
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1034 ;popa (argn) ;pops arg value off argstack assign arg#
+                    currentscript\argstackptr=currentscript\argstackptr-4
+                    currentscript\arg#[peekfloattest(currentscript\instruction,currentscript\instructionptr+6)]=peekfloattest(currentscript\argstack,currentscript\argstackptr)
+                    currentscript\instructionptr=currentscript\instructionptr+10
+               case 1035 ;mul ;integer divide script\ax# with script\cx# stores value into script\ax#
+                    currentscript\ax#=currentscript\ax#*currentscript\cx#
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1036 ;div ;float divide script\ax# with script\cx# stores value into script\ax#
+                    currentscript\ax#=currentscript\ax#/currentscript\cx#
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1037 ;neg ;float subtracts script\ax# from script\cx# stores value into script\ax#
+                    currentscript\ax#=-currentscript\ax#
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1038 ;add ;float adds script\ax# with script\cx# stores value into script\ax#
+                    currentscript\ax#=currentscript\ax#+currentscript\cx#
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1039 ;sub ;float subtracts script\ax# from script\cx# stores value into script\ax#
+                    currentscript\ax#=currentscript\ax#-currentscript\cx#
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1040 ;shl float shift left script\ax# by script\cx# stores value into script\ax#
+                    currentscript\ax#=currentscript\ax# shl currentscript\cx#
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1041 ;shl float shift right script\ax# by script\cx# stores value into script\ax#
+                    currentscript\ax#=currentscript\ax# shr currentscript\cx#
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1042 ;slt ;compares script\cx# < script\ax# sets script zero flg
+                    if currentscript\cx#>currentscript\ax# currentscript\zero=true
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1043 ;sgt ;compares script\cx#>script\ax# sets script zero flg
+                    if currentscript\cx#<currentscript\ax# currentscript\zero=true
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1044 ;sle ;compares script\cx#<=script\ax# sets script zero flg
+                    if currentscript\cx#>=currentscript\ax# currentscript\zero=true
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1045 ;sge ;compares script\cx#>=script\ax# sets script zero flg
+                    if currentscript\cx#<=currentscript\ax# currentscript\zero=true
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1046 ;seq ;compares script\cx#=script\ax# sets script zero flg
+                    if currentscript\cx#<>currentscript\ax# currentscript\zero=true
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1047 ;sne ;compares script\cx#<>script\ax# sets script zero flg
+                    if currentscript\cx#=currentscript\ax# currentscript\zero=true
+                    currentscript\instructionptr=currentscript\instructionptr+5
+               case 1048 ;jez ;if script\zero true jump to label
+                    if currentscript\zero
+                       currentscript\instructionptr=peekshorttest(lablist,peekfloattest(currentscript\instruction,currentscript\instructionptr+6) shl 1)
+                       currentscript\zero=reset
+                    else
+                       currentscript\instructionptr=currentscript\instructionptr+10
+                    endif
+               case 1049 ;jmp ;unconditional jump to label
+                    currentscript\instructionptr=peekshorttest(lablist,peekfloattest(currentscript\instruction,currentscript\instructionptr+6) shl 1)
+               case 1050 ;lab
+                    currentscript\instructionptr=currentscript\instructionptr+10
+               case 1051 ;movs(string const) ;assigns varcharbank handle to script\ax#
+                    currentscript\instructionptr=currentscript\instructionptr+10
+               case 1052 ;movas(var) ;assigns script\ax# value into varcharbank
+                    currentscript\instructionptr=currentscript\instructionptr+10
+               case 1053 ;movsa(var) ;assigns varcharbank value to script\ax#
+                    ;
+                    currentscript\instructionptr=currentscript\instructionptr+10
+          end select
+end function
+
+function calltree()
+         ;BLITZ
+         currentscript\ax=none
+         select currentscript\arg#[0]
+               case 1 accepttcpstream(currentscript\arg#[1])
+               case 2 currentscript\ax#=acos(currentscript\arg#[1]);acos macro
+               case 3 addanimseq(currentscript\arg#[1],currentscript\arg#[2])
+               case 4 addmesh(currentscript\arg#[1],currentscript\arg#[2])
+               case 5 addtriangle(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 6 addvertex(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7])
+               case 7 aligntovector(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 8 ambientlight(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 9 animate(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 10 animatemd2(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6])
+               case 11 animating(currentscript\arg#[1])
+               case 12 animlength(currentscript\arg#[1])
+               case 13 animseq(currentscript\arg#[1])
+               case 14 animtime#(currentscript\arg#[1])
+               case 15 antialias(currentscript\arg#[1])
+               case 16 apptitle(currentscript\arg#[1],currentscript\arg#[2])
+               case 17 currentscript\ax#=asc(currentscript\arg#[1])
+               case 18 currentscript\ax#=asin(currentscript\arg#[1]);asin macro
+               case 19 currentscript\ax#=atan(currentscript\arg#[1]);atan macro
+               case 20 currentscript\ax#=atan2(currentscript\arg#[1],currentscript\arg#[2]);atan2 macro
+               case 21 automidhandle(currentscript\arg#[1])
+               case 22 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=availvidmem();availvidmem macro
+               case 23 currentscript\stackptr=currentscript\stackptr-4:backbuffer()
+               case 24 banksize(currentscript\arg#[1])
+               ;case 25 bin$(currentscript\arg#[1])
+               case 26 brushalpha(currentscript\arg#[1],currentscript\arg#[2])
+               case 27 brushblend(currentscript\arg#[1],currentscript\arg#[2])
+               case 28 brushfx(currentscript\arg#[1],currentscript\arg#[2])
+               case 29 brushshininess(currentscript\arg#[1],currentscript\arg#[2])
+               case 30 brushtexture(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 31 bspambientlight(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 32 bsplighting(currentscript\arg#[1],currentscript\arg#[2])
+               case 33 cameraclscolor(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 34 cameraclsmode(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 35 camerafogcolor(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 36 camerafogmode(currentscript\arg#[1],currentscript\arg#[2])
+               case 37 camerafogrange(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 38 camerapick(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 39 cameraproject(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 40 camerarange(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 41 cameraviewport(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 42 camerazoom(currentscript\arg#[1],currentscript\arg#[2])
+               case 43 currentscript\stackptr=currentscript\stackptr-4:captureworld()
+               case 44 currentscript\ax#=ceil#(currentscript\arg#[1]);ceil macro
+               case 45 changedir(currentscript\arg#[1])
+               case 46 channelpan(currentscript\arg#[1],currentscript\arg#[2])
+               case 47 channelpitch(currentscript\arg#[1],currentscript\arg#[2])
+               case 48 channelplaying(currentscript\arg#[1])
+               case 49 channelvolume(currentscript\arg#[1],currentscript\arg#[2])
+               case 50 chr(currentscript\arg#[1])
+               case 51 currentscript\stackptr=currentscript\stackptr-4:clearcollisions()
+               case 52 clearsurface(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 53 currentscript\stackptr=currentscript\stackptr-4:cleartexturefilters()
+               case 54 clearworld(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 55 closedir(currentscript\arg#[1])
+               case 56 closefile(currentscript\arg#[1])
+               case 57 closetcpserver(currentscript\arg#[1])
+               case 58 closetcpstream(currentscript\arg#[1])
+               case 59 closeudpstream(currentscript\arg#[1])
+               case 60 currentscript\stackptr=currentscript\stackptr-4:cls()
+               case 61 clscolor(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 62 currentscript\ax#=collisionentity(currentscript\arg#[1],currentscript\arg#[2]);collisionentity macro
+               case 63 currentscript\ax#=collisionnx#(currentscript\arg#[1],currentscript\arg#[2]);collisionnx macro
+               case 64 currentscript\ax#=collisionny#(currentscript\arg#[1],currentscript\arg#[2]);collisionny macro
+               case 65 currentscript\ax#=collisionnz#(currentscript\arg#[1],currentscript\arg#[2]);collisionnz macro
+               case 66 collisions(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 67 currentscript\ax#=collisionsurface(currentscript\arg#[1],currentscript\arg#[2]);collisionsurface macro
+               case 68 currentscript\ax#=collisiontime(currentscript\arg#[1],currentscript\arg#[2]);collisiontime macro
+               case 69 currentscript\ax#=collisiontriangle(currentscript\arg#[1],currentscript\arg#[2]);collisiontriangle macro
+               case 70 currentscript\ax#=collisionx#(currentscript\arg#[1],currentscript\arg#[2]);collisionx macro
+               case 71 currentscript\ax#=collisiony#(currentscript\arg#[1],currentscript\arg#[2]);collisiony macro
+               case 72 currentscript\ax#=collisionz#(currentscript\arg#[1],currentscript\arg#[2]);collisionz macro
+               case 73 color(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 74 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=colorblue();colorblue macro
+               case 75 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=colorgreen();colorgreen macro
+               case 76 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=colorred();colorred macro
+               ;case 77 commandline$()
+               case 78 copybank(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 79 copyentity(currentscript\arg#[1],currentscript\arg#[2])
+               case 80 copyfile(currentscript\arg#[1],currentscript\arg#[2])
+               case 81 copyimage(currentscript\arg#[1])
+               case 82 copypixel(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6])
+               case 83 copypixelfast(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6])
+               case 84 copyrect(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8])
+               case 85 copystream(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 86 currentscript\ax#=cos(currentscript\arg#[1]);cos macro
+               case 87 currentscript\ax#=countchildren(currentscript\arg#[1]);countchildren macro
+               case 88 currentscript\ax#=countcollisions(currentscript\arg#[1]);countcollisions macro
+               case 89 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=countgfxdrivers();countgfxdrivers macro
+               case 90 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=countgfxmodes();countgfxmodes macro
+               case 91 currentscript\ax#=counthostips(currentscript\arg#[1]);counthostips macro
+               case 92 currentscript\ax#=countsurfaces(currentscript\arg#[1]);countsurfaces macro
+               case 93 currentscript\ax#=counttriangles(currentscript\arg#[1]);counttriangles macro
+               case 94 currentscript\ax#=countvertices(currentscript\arg#[1]);countvertices macro
+               case 95 currentscript\ax#=createbank(currentscript\arg#[1]);createbank macro
+               case 96 currentscript\ax#=createbrush(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);createbrush macro
+               case 97 currentscript\ax#=createcamera(currentscript\arg#[1]);createcamera macro
+               case 98 currentscript\ax#=createcone(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);createcone macro
+               case 99 currentscript\ax#=createcube(currentscript\arg#[1]);createcube macro
+               case 100 currentscript\ax#=createcylinder(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);createcylinder macro
+               case 101 createdir(currentscript\arg#[1])
+               case 102 currentscript\ax#=createimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);createimage macro
+               case 103 currentscript\ax#=createlight(currentscript\arg#[1],currentscript\arg#[2]);createlight macro
+               case 104 currentscript\ax#=createlistener(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4]);createlistener macro
+               case 105 currentscript\ax#=createmesh(currentscript\arg#[1]);createmesh macro
+               case 106 currentscript\ax#=createnetplayer(currentscript\arg#[1]);createnetplayer macro
+               case 107 currentscript\ax#=createpivot(currentscript\arg#[1]);createpivot macro
+               case 108 currentscript\ax#=createplane(currentscript\arg#[1],currentscript\arg#[2]);createplane macro
+               case 109 currentscript\ax#=createsphere(currentscript\arg#[1],currentscript\arg#[2]);createsphere macro
+               case 110 currentscript\ax#=createsprite(currentscript\arg#[1]);createsprite macro
+               case 111 currentscript\ax#=createsurface(currentscript\arg#[1],currentscript\arg#[2]);createsurface macro
+               case 112 currentscript\ax#=createtcpserver(currentscript\arg#[1]);createtcpserver macro
+               case 113 currentscript\ax#=createterrain(currentscript\arg#[1],currentscript\arg#[2]);createterrain macro
+               case 114 currentscript\ax#=createtimer(currentscript\arg#[1]);createtimer macro
+               case 115 currentscript\ax#=createudpstream(currentscript\arg#[1]);createudpstream macro
+               ;case 116 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=currentdate$();currentdate$ macro
+               ;case 117 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=currentdir$();currentdir$ macro
+               ;case 118 currentscript\ax#=currenttime$();currenttime macro
+               ;case 119 currentscript\stackptr=currentscript\stackptr-4:debuglog(currentscript\arg#[1])
+               case 120 delay(currentscript\arg#[1])
+               case 121 deletedir(currentscript\arg#[1])
+               case 122 deletefile(currentscript\arg#[1])
+               case 123 deletenetplayer(currentscript\arg#[1])
+               case 124 dither(currentscript\arg#[1])
+               ;case 125 currentscript\ax#=dottedip$(ip);dottedip$ macro
+               case 126 drawblock(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 127 drawblockrect(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8])
+               case 128 drawimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 129 drawimagerect(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8])
+               case 130 emitsound(currentscript\arg#[1],currentscript\arg#[2])
+               case 131 termination=true;terminate macro
+               case 132 entityalpha(currentscript\arg#[1],currentscript\arg#[2])
+               case 133 entityautofade(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 134 entityblend(currentscript\arg#[1],currentscript\arg#[2])
+               case 135 entitybox(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7])
+               case 136 entitycollided(currentscript\arg#[1],currentscript\arg#[2])
+               case 137 entitycolor(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 138 entitydistance#(currentscript\arg#[1],currentscript\arg#[2])
+               case 139 entityfx(currentscript\arg#[1],currentscript\arg#[2])
+               case 140 entityinview(currentscript\arg#[1],currentscript\arg#[2])
+               ;case 141 entityname$(currentscript\arg#[1])
+               case 142 entityorder(currentscript\arg#[1],currentscript\arg#[2])
+               case 143 entityparent(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 144 entitypick(currentscript\arg#[1],currentscript\arg#[2])
+               case 145 entitypickmode(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 146 entitypitch#(currentscript\arg#[1],currentscript\arg#[2])
+               case 147 entityradius(currentscript\arg#[1],currentscript\arg#[2])
+               case 148 entityroll#(currentscript\arg#[1],currentscript\arg#[2])
+               case 149 entityshininess(currentscript\arg#[1],currentscript\arg#[2])
+               case 150 entitytexture(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 151 entitytype(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 152 entityvisible(currentscript\arg#[1],currentscript\arg#[2])
+               case 153 currentscript\ax#=entityx#(currentscript\arg#[1],currentscript\arg#[2])
+               case 154 currentscript\ax#=entityy#(currentscript\arg#[1],currentscript\arg#[2])
+               case 155 currentscript\ax#=entityyaw#(currentscript\arg#[1],currentscript\arg#[2])
+               case 156 currentscript\ax#=entityz#(currentscript\arg#[1],currentscript\arg#[2])
+               case 157 currentscript\ax#=eof(currentscript\arg#[1]);eof macro
+               case 158 execfile(currentscript\arg#[1])
+               case 159 currentscript\ax#=exp(currentscript\arg#[1]);exp macro
+               case 160 currentscript\ax#=filepos(currentscript\arg#[1]);filepos macro
+               case 161 currentscript\ax#=filesize(currentscript\arg#[1]);filesize macro
+               case 162 currentscript\ax#=filetype(currentscript\arg#[1]);filetype macro
+               case 163 currentscript\ax#=findchild(currentscript\arg#[1],currentscript\arg#[2]);findchild macro
+               case 164 currentscript\ax#=findsurface(currentscript\arg#[1],currentscript\arg#[2]);findsurface macro
+               case 165 fitmesh(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8])
+               case 166 flip(currentscript\arg#[1])
+               case 167 flipmesh(currentscript\arg#[1])
+               case 168 currentscript\ax#=floor#(currentscript\arg#[1]);floor macro
+               case 169 currentscript\stackptr=currentscript\stackptr-4:flushjoy()
+               case 170 currentscript\stackptr=currentscript\stackptr-4:flushkeys()
+               case 171 currentscript\stackptr=currentscript\stackptr-4:flushmouse()
+               case 172 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=fontheight()
+               case 173 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=fontwidth()
+               case 174 freebank(currentscript\arg#[1])
+               case 175 freebrush(currentscript\arg#[1])
+               case 176 freeentity(currentscript\arg#[1])
+               case 177 freefont(currentscript\arg#[1])
+               case 178 freeimage(currentscript\arg#[1])
+               case 179 freesound(currentscript\arg#[1])
+               case 180 freetexture(currentscript\arg#[1])
+               case 181 freetimer(currentscript\arg#[1])
+               case 182 currentscript\stackptr=currentscript\stackptr-4:frontbuffer()
+               case 183 currentscript\ax#=getchild(currentscript\arg#[1],currentscript\arg#[2]);getchild macro
+               case 184 getcolor(currentscript\arg#[1],currentscript\arg#[2])
+               case 185 currentscript\ax#=getentitytype(currentscript\arg#[1]);getentitytype macro
+               case 186 currentscript\ax#=getjoy(currentscript\arg#[1]);getjoy macro
+               case 187 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=getkey();getkey macro
+               case 188 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=getmouse();getmouse macro
+               case 189 currentscript\ax#=getparent(currentscript\arg#[1]);getparent macro
+               case 190 currentscript\ax#=getsurface(currentscript\arg#[1],currentscript\arg#[2]);getsurface macro
+               case 191 currentscript\ax#=gfxdriver3d(currentscript\arg#[1]);gfxdriver3d macro
+               ;case 192 currentscript\ax#=gfxdrivername$(currentscript\arg#[1]);gfxdrivername$ macro
+               case 193 currentscript\ax#=gfxmode3d(currentscript\arg#[1]);gfxmode3d macro
+               case 194 currentscript\ax#=gfxmode3dexists(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);gfxmode3dexists macro
+               case 195 currentscript\ax#=gfxmodedepth(currentscript\arg#[1]);gfxmodedepth macro
+               case 196 currentscript\ax#=gfxmodeexists(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);gfxmodeexists macro
+               case 197 currentscript\ax#=gfxmodeheight(currentscript\arg#[1]);gfxmodeheight macro
+               case 198 currentscript\ax#=gfxmodewidth(currentscript\arg#[1]);gfxmodewidth macro
+               case 199 ;grabimage(image,x,y,frame macro
+               case 200 graphics3d(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 201 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=graphicsbuffer()
+               case 202 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=graphicsdepth();graphicsdepth macro
+               case 203 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax=graphicsheight();graphicsheight macro
+               case 204 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax=graphicswidth();graphicswidth macro
+               case 205 handleimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 206 handlesprite(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               ;case 207 currentscript\ax#=hex$(currentscript\arg#[1]);hex macro
+               case 208 hideentity(currentscript\arg#[1])
+               case 209 currentscript\stackptr=currentscript\stackptr-4:hidepointer()
+               case 210 hostip(currentscript\arg#[1])
+               case 211 hostnetgame(currentscript\arg#[1])
+               case 212 hwmultitex(currentscript\arg#[1])
+               case 213 imagebuffer (currentscript\arg#[1],currentscript\arg#[2])
+               case 214 currentscript\ax#=imageheight(currentscript\arg#[1]);imageheight macro
+               case 215 currentscript\ax#=imagerectcollide(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8]);imagerectcollide macro
+               case 216 currentscript\ax#=imagerectoverlap(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7]);imagerectoverlap macro
+               case 217 currentscript\ax#=imagescollide(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8]);imagescollide macro
+               case 218 currentscript\ax#=imagesoverlap(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6]);imagesoverlap macro
+               case 219 currentscript\ax#=imagewidth(currentscript\arg#[1]);imagewidth macro
+               case 220 currentscript\ax#=imagexhandle(currentscript\arg#[1]);imagexhandle macro
+               case 221 currentscript\ax#=imageyhandle(currentscript\arg#[1]);imageyhandle macro
+               ;case 222 incurrentscript\arg#[1],currentscript\arg#[1],currentscript\arg#[1])
+               case 223 joinnetgame(currentscript\arg#[1],currentscript\arg#[2])
+               case 224 ;joytype(port macro
+               case 225 currentscript\ax#=joyx(currentscript\arg#[1]);joyx macro
+               case 226 currentscript\ax#=joyxdir(currentscript\arg#[1]);joyxdir macro
+               case 227 currentscript\ax#=joyy(currentscript\arg#[1]);joyy macro
+               case 228 currentscript\ax#=joyydir(currentscript\arg#[1]);joyydir macro
+               case 229 currentscript\ax#=joyz(currentscript\arg#[1]);joyz macro
+               case 230 currentscript\ax#=joyzdir(currentscript\arg#[1]);joyzdir macro
+               case 231 currentscript\ax#=keydown(currentscript\arg#[1]);keydown macro
+               case 232 currentscript\ax#=keyhit(currentscript\arg#[1]);keyhit macro
+               ;case 233 currentscript\ax#=left(currentscript\arg#[1],currentscript\arg#[2]);left$ macro
+               ;case 234 currentscript\ax#=len(currentscript\arg#[1]);len macro
+               case 235 lightcolor(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 236 lightmesh(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8])
+               case 237 lightrange(currentscript\arg#[1],currentscript\arg#[2])
+               case 238 line(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 239 linepick(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7])
+               case 240 currentscript\ax#=load3dsound(currentscript\arg#[1]);load3dsound macro
+               case 241 currentscript\ax#=loadanimimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5]);loadanimimage macro
+               case 242 currentscript\ax#=loadanimmesh(currentscript\arg#[1],currentscript\arg#[2]);loadanimmesh macro
+               case 243 currentscript\ax#=loadanimseq(currentscript\arg#[1],currentscript\arg#[2]);loadanimseq macro
+               ;case 244 currentscript\ax#=loadanimtexture(currentscript\arg#[1],flags,frame_width,frame_height,first_frame,frame_count));loadanimtexture macro
+               case 245 currentscript\ax#=loadbrush(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4]);loadbrush macro
+               case 246 currentscript\ax#=loadbsp(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);loadbsp macro
+               case 247 currentscript\ax#=loadbuffer(currentscript\arg#[1],currentscript\arg#[2]);loadbuffer macro
+               case 248 loadermatrix(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8],currentscript\arg#[9],currentscript\arg#[10])
+               case 249 currentscript\ax#=loadfont(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5]);loadfont macro
+               case 250 currentscript\ax#=loadimage(currentscript\arg#[1]);loadimage macro
+               case 251 currentscript\ax#=loadmd2(currentscript\arg#[1],currentscript\arg#[2]);loadmd2 macro
+               case 252 currentscript\ax#=loadmesh(currentscript\arg#[1],currentscript\arg#[2]);loadmesh macro
+               case 253 currentscript\ax#=loadsound(currentscript\arg#[1]);loadsound macro
+               case 254 currentscript\ax#=loadsprite(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);loadsprite macro
+               case 255 currentscript\ax#=loadterrain(currentscript\arg#[1],currentscript\arg#[2]);loadterrain macro
+               case 256 currentscript\ax#=loadtexture(currentscript\arg#[1],currentscript\arg#[2]);loadtexture macro
+               case 257 lockbuffer(currentscript\arg#[1])
+               case 258 currentscript\ax#=log(currentscript\arg#[1]);log macro
+               case 259 currentscript\ax#=log10(currentscript\arg#[1]);log10 macro
+               case 260 loopsound(currentscript\arg#[1])
+               ;case 261 lower$(currentscript\arg#[1])
+               ;case 262 lset$(currentscript\arg#[1],currentscript\arg#[2])
+               case 263 maskimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 264 md2animating(currentscript\arg#[1])
+               case 265 md2animlength(currentscript\arg#[1])
+               case 266 md2animtime(currentscript\arg#[1])
+               case 267 currentscript\ax#=meshdepth#(currentscript\arg#[1])
+               case 268 currentscript\ax#=meshesintersect(currentscript\arg#[1],currentscript\arg#[2])
+               case 269 currentscript\ax#=meshheight#(currentscript\arg#[1])
+               case 270 currentscript\ax#=meshwidth#(currentscript\arg#[1])
+               ;case 271 currentscript\ax#=mid$(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]); macro
+               case 272 midhandle(currentscript\arg#[1])
+               case 273 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=millisecs();millisecs macro
+               case 274 modifyterrain(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 275 currentscript\ax#=mousedown(currentscript\arg#[1]);mousedown macro
+               case 276 currentscript\ax#=mousehit(currentscript\arg#[1]);mousehit macro
+               case 277 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=mousex();mousex macro
+               case 278 currentscript\ax#=mousexspeed();mousexspeed macro
+               case 279 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=mousey();mousey macro
+               case 280 currentscript\ax#=mouseyspeed();mouseyspeed macro
+               case 281 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=mousez();mousez macro
+               case 282 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=mousezspeed();mousezspeed macro
+               case 283 moveentity(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 284 movemouse(currentscript\arg#[1],currentscript\arg#[2])
+               case 285 nameentity(currentscript\arg#[1],currentscript\arg#[2])
+               ;case 286 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=netmsgdata$()
+               case 287 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=netmsgfrom()
+               case 288 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=netmsgto()
+               case 289 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=netmsgtype()
+               case 290 netplayerlocal(currentscript\arg#[1])
+               ;case 291 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=netplayername$(currentscript\arg#[1])
+               ;case 292 nextfile$(currentscript\arg#[1])
+               case 293 openfile(currentscript\arg#[1])
+               case 294 opentcpstream(currentscript\arg#[1],currentscript\arg#[2])
+               case 295 origin(currentscript\arg#[1],currentscript\arg#[2])
+               case 296 oval(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 297 paintentity(currentscript\arg#[1],currentscript\arg#[2])
+               case 298 paintmesh(currentscript\arg#[1],currentscript\arg#[2])
+               case 299 paintsurface(currentscript\arg#[1],currentscript\arg#[2])
+               case 300 pausechannel(currentscript\arg#[1])
+               case 301 peekbyte(currentscript\arg#[1],currentscript\arg#[2])
+               case 302 peekfloat(currentscript\arg#[1],currentscript\arg#[2])
+               case 303 peekint(currentscript\arg#[1],currentscript\arg#[2])
+               case 304 peekshort(currentscript\arg#[1],currentscript\arg#[2])
+               case 305 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickedentity();pickedentity macro
+               case 306 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickednx#();pickednx macro
+               case 307 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickedny#();pickedny macro
+               case 308 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickednz#();pickednz macro
+               case 309 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickedsurface();pickedsurface macro
+               case 310 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickedtime();pickedtime macro
+               case 311 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickedtriangle();pickedtriangle macro
+               case 312 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickedx#();pickedx macro
+               case 313 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickedy#();pickedy macro
+               case 314 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=pickedz#();pickedz macro
+               case 315 playcdtrack(currentscript\arg#[1],currentscript\arg#[2])
+               case 316 playmusic(currentscript\arg#[1])
+               case 317 playsound(currentscript\arg#[1])
+               case 318 plot(currentscript\arg#[1],currentscript\arg#[2])
+               case 319 pointentity(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 320 pokebyte(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 321 pokefloat(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 322 pokeint(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 323 pokeshort(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 324 positionentity(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 325 positionmesh(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 326 positiontexture(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 327 print(currentscript\arg#[1])
+               case 328 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=projectedx#();projectedx macro
+               case 329 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=projectedy#();projectedy macro
+               case 330 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=projectedz#();projectedz macro
+               case 331 rand(currentscript\arg#[1],currentscript\arg#[2])
+               case 332 currentscript\ax#=readavail(currentscript\arg#[1]);readavail macro
+               case 333 currentscript\ax#=readbyte(currentscript\arg#[1]);readbyte macro
+               case 334 currentscript\ax#=readbytes(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4]);readbytes macro
+               case 335 currentscript\ax#=readdir(currentscript\arg#[1]);readdir macro
+               case 336 currentscript\ax#=readfile(currentscript\arg#[1]);readfile macro
+               case 337 currentscript\ax#=readfloat(currentscript\arg#[1]);readfloat macro
+               case 338 currentscript\ax#=readint(currentscript\arg#[1]);readint macro
+               ;case 339 currentscript\ax#=readline$(currentscript\arg#[1]);readline$ macro
+               case 340 currentscript\ax#=readpixel(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);readpixel macro
+               case 341 currentscript\ax#=readpixelfast(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3]);readpixelfast macro
+               case 342 currentscript\ax#=readshort(currentscript\arg#[1]);readshort macro
+               ;case 343 currentscript\ax#=readstring$(currentscript\arg#[1]);readstring$ macro
+               case 344 rect(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 345 rectsoverlap(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6],currentscript\arg#[7],currentscript\arg#[8])
+               case 346 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=recvnetmsg()
+               case 347 currentscript\ax#=recvudpmsg(currentscript\arg#[1])
+               ;case 348 replace$(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 349 resetentity(currentscript\arg#[1])
+               case 350 resizebank(currentscript\arg#[1],currentscript\arg#[2])
+               case 351 resizeimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 352 resumechannel(currentscript\arg#[1])
+               case 353 currentscript\ax#=right$(currentscript\arg#[1],currentscript\arg#[2]);right$ macro
+               case 354 currentscript\ax#=rnd(currentscript\arg#[1],currentscript\arg#[2]);rnd macro
+               case 355 rotateentity(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 356 rotateimage(currentscript\arg#[1],currentscript\arg#[2])
+               case 357 rotatemesh(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 358 rotatesprite(currentscript\arg#[1],currentscript\arg#[2])
+               case 359 rotatetexture(currentscript\arg#[1],currentscript\arg#[2])
+               ;case 360 rset$(currentscript\arg#[1],currentscript\arg#[2])
+               case 361 runtimeerror(currentscript\arg#[1])
+               case 362 savebuffer(currentscript\arg#[1],currentscript\arg#[2])
+               case 363 saveimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 364 scaleentity(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 365 scaleimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 366 scalemesh(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 367 scalesprite(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 368 scaletexture(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 369 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=scanline()
+               case 370 seedrnd(currentscript\arg#[1])
+               case 371 seekfile(currentscript\arg#[1],currentscript\arg#[2])
+               case 372 sendnetmsg(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 373 sendudpmsg(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 374 setanimkey(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 375 setfont(currentscript\arg#[1])
+               case 376 setgfxdriver(currentscript\arg#[1])
+               case 377 showentity(currentscript\arg#[1])
+               case 378 currentscript\stackptr=currentscript\stackptr-4:showpointer()
+               case 379 sin(currentscript\arg#[1])
+               case 380 soundpan(currentscript\arg#[1],currentscript\arg#[2])
+               case 381 soundpitch(currentscript\arg#[1],currentscript\arg#[2])
+               case 382 soundvolume(currentscript\arg#[1],currentscript\arg#[2])
+               case 383 spriteviewmode(currentscript\arg#[1],currentscript\arg#[2])
+               case 384 currentscript\ax#=sqr(currentscript\arg#[1]);sqr macro
+               case 385 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=startnetgame()
+               case 386 currentscript\stackptr=currentscript\stackptr-4:stop()
+               case 387 stopchannel(currentscript\arg#[1])
+               case 388 currentscript\stackptr=currentscript\stackptr-4:stopnetgame()
+               ;case 389 string$(currentscript\arg#[1],currentscript\arg#[2])
+               case 390 stringheight(currentscript\arg#[1])
+               case 391 stringwidth(currentscript\arg#[1])
+               case 392 systemproperty(currentscript\arg#[1])
+               case 393 tan(currentscript\arg#[1])
+               case 394 tcpstreamip(currentscript\arg#[1])
+               case 395 tcpstreamport(currentscript\arg#[1])
+               case 396 tcptimeouts(currentscript\arg#[1],currentscript\arg#[2])
+               case 397 terraindetail(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 398 terrainheight#(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               case 399 terrainshading(currentscript\arg#[1],currentscript\arg#[2])
+               case 400 currentscript\ax#=terrainsize(currentscript\arg#[1])
+               case 401 terrainx#(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 402 terrainy#(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 403 terrainz#(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 404 text(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 405 textureblend(currentscript\arg#[1],currentscript\arg#[2])
+               case 406 texturebuffer(currentscript\arg#[1],currentscript\arg#[2])
+               case 407 texturecoords(currentscript\arg#[1],currentscript\arg#[2])
+               case 408 texturefilter(currentscript\arg#[1],currentscript\arg#[2])
+               case 409 currentscript\ax#=textureheight(texture);textureheight macro
+               case 410 currentscript\ax#=texturewidth(texture);texturewidth macro
+               case 411 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=tformedx();tformedx macro
+               case 412 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=tformedy();tformedy macro
+               case 413 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=tformedz();tformedz macro
+               case 414 tformfilter(currentscript\arg#[1])
+               case 415 tformimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 416 tformnormal(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 417 tformpoint(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 418 tformvector(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 419 tileblock(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 420 tileimage(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 421 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=totalvidmem();totalvidmem macro
+               case 422 translateentity(currentscript\arg[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 423 trianglevertex(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3])
+               ;case 424 trim$(currentscript\arg#[1])
+               case 425 currentscript\stackptr=currentscript\stackptr-4:currentscript\ax#=trisrendered()
+               case 426 turnentity(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 427 udpmsgip(currentscript\arg#[1])
+               case 428 udpmsgport(currentscript\arg#[1])
+               case 429 udpstreamip(currentscript\arg#[1])
+               case 430 udpstreamport(currentscript\arg#[1])
+               case 431 udptimeouts(currentscript\arg#[1])
+               case 432 unlockbuffer(currentscript\arg#[1])
+               case 433 updatenormals(currentscript\arg#[1])
+               case 434 updateworld(currentscript\arg#[1])
+               ;case 435 upper$(currentscript\arg#[1])
+               case 436 vertexblue#(currentscript\arg#[1],currentscript\arg#[2])
+               case 437 vertexcolor(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 438 vertexcoords(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 439 vertexgreen#(currentscript\arg#[1],currentscript\arg#[2])
+               case 440 vertexnormal(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5])
+               case 441 vertexnx#(currentscript\arg#[1],currentscript\arg#[2])
+               case 442 vertexny#(currentscript\arg#[1],currentscript\arg#[2])
+               case 443 vertexnz#(currentscript\arg#[1],currentscript\arg#[2])
+               case 444 vertexred#(currentscript\arg#[1],currentscript\arg#[2])
+               case 445 vertextexcoords(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4],currentscript\arg#[5],currentscript\arg#[6])
+               case 446 vertexu#(currentscript\arg#[1],currentscript\arg#[2])
+               case 447 vertexv#(currentscript\arg#[1],currentscript\arg#[2])
+               case 448 vertexw#(currentscript\arg#[1],currentscript\arg#[2])
+               case 449 vertexx#(currentscript\arg#[1],currentscript\arg#[2])
+               case 450 vertexy#(currentscript\arg#[1],currentscript\arg#[2])
+               case 451 vertexz#(currentscript\arg#[1],currentscript\arg#[2])
+               case 452 viewport(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 453 vwait(currentscript\arg#[1])
+               case 454 waitjoy(currentscript\arg#[1])
+               case 455 currentscript\stackptr=currentscript\stackptr-4:waitkey()
+               case 456 currentscript\stackptr=currentscript\stackptr-4:waitmouse()
+               case 457 waittimer(currentscript\arg#[1])
+               case 458 wbuffer(currentscript\arg#[1])
+               case 459 currentscript\stackptr=currentscript\stackptr-4:windowed3d()
+               case 460 wireframe(currentscript\arg#[1])
+               case 461 write(currentscript\arg#[1])
+               case 462 writebyte(currentscript\arg#[1],currentscript\arg#[2])
+               case 463 writebytes(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[3],currentscript\arg#[4])
+               case 464 writefile(currentscript\arg#[1])
+               case 465 writefloat(currentscript\arg#[1],currentscript\arg#[2])
+               case 466 writeint(currentscript\arg#[1],currentscript\arg#[2])
+               case 467 writeline(currentscript\arg#[1],currentscript\arg#[2])
+               case 468 writepixel(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[1],currentscript\arg#[1])
+               case 469 writepixelfast(currentscript\arg#[1],currentscript\arg#[2],currentscript\arg#[1],currentscript\arg#[1])
+               case 470 writeshort(currentscript\arg#[1],currentscript\arg#[2])
+               case 471 writestring(currentscript\arg#[1],currentscript\arg#[2])
+               
+               ;PLASMA
+
+          end select
+end function
+
+; -----------------------------------------------------------------------------
+;TESTING
+; -----------------------------------------------------------------------------
+
+global pokefloattestbank,pokefloattestoffset,pokefloattestvalue#
+global peekfloattestbank,peekfloattestoffset,peekfloattestvalue#
+global pokeshorttestbank,pokeshorttestoffset,pokeshorttestvalue
+global peekshorttestbank,peekshorttestoffset,peekshorttestvalue
+global pokebytetestbank,pokebytetestoffset,pokebytetestvalue
+global peekbytetestbank,peekbytetestoffset,peekbytetestvalue
+
+function pokefloattest(bank,offset,value#)
+         pokefloattestbank=bank
+         pokefloattestoffset=offset
+         pokefloattestvalue#=value#
+         pokefloat(bank,offset,value#)
+end function
+
+function peekfloattest#(bank,offset)
+         peekfloattestbank=bank
+         peekfloattestoffset=offset
+         peekfloattestvalue#=peekfloat(bank,offset)
+         return peekfloattestvalue#
+end function
+
+function pokeshorttest(bank,offset,value)
+         pokeshorttestbank=bank
+         pokeshorttestoffset=offset
+         pokeshorttestvalue=value
+         pokeshort(bank,offset,value)
+end function
+
+function peekshorttest(bank,offset)
+         peekshorttestbank=bank
+         peekshorttestoffset=offset
+         peekshorttestvalue=peekshort(bank,offset)
+         return peekshorttestvalue
+end function
+
+function pokebytetest(bank,offset,value)
+         pokebytetestbank=bank
+         pokebytetestoffset=offset
+         pokebytetestvalue=value
+         pokebyte(bank,offset,value)
+end function
+
+function peekbytetest(bank,offset)
+         peekbytetestbank=bank
+         peekbytetestoffset=offset
+         peekbytetestvalue=peekbyte(bank,offset)
+         return peekbytetestvalue
+end function
+
+
+;function call(s$)
+; callfound
+; restore callcommands
+; repeat
+; n=n+1
+; read callstr$
+; if s$=callstr$ return n
+; until callstr$=""
+;end function
+
+;.callcommands
+;data "accepttcpstream",
+
+; -----------------------------------------------------------------------------
+;REFERENCES
+; -----------------------------------------------------------------------------
+
+;http://www.theteacher.freeserve.co.uk/alevel/assem/
+

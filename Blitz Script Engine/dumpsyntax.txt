@@ -1,0 +1,592 @@
+Abs
+AcceptTCPStream ( tcp_server )
+ACos# ( float# )
+ActiveTextures ( )
+AddAnimSeq ( entity,length )
+AddMesh source_mesh,dest_mesh
+AddTriangle ( surface,v0,v1,v2 )
+AddVertex ( surface,x#,y#,z#[,u#][,v#][,w#] )
+After
+AlignToVector entity,vector_x#,vector_y#,vector_z#,axis[,rate#]
+AmbientLight red#,green#,blue#
+And
+Animate entity[,mode][,speed#][,sequence][,transition#]
+AnimateMD2 md2[,mode][,speed#][,first_frame][,last_frame][,transition#]
+Animating ( entity )
+AnimLength ( entity )
+AnimSeq ( entity )
+AnimTime# ( entity )
+AntiAlias enable
+AppTitle title$[,close_prompt$]
+Asc ( string$ )
+ASin# ( float# )
+ATan# ( float# )
+ATan2# ( floata#,floatb# )
+AutoMidHandle enable
+AvailVidMem ( )
+BackBuffer ( )
+BankSize ( bank )
+Before
+Bin$ ( value )
+BrushAlpha brush,alpha#
+BrushBlend brush,blend
+BrushColor brush,red#,green#,blue#
+BrushFX brush,fx
+BrushShininess brush,shininess#
+BrushTexture brush,texture[,frame][,index]
+BSPAmbientLight bsp,red#,green#,blue#
+BSPLighting bsp,use_lightmaps
+CallDLL ( dll_name$,func_name$[,in_bank][,out_bank] )
+CameraClsColor camera,red#,green#,blue#
+CameraClsMode camera,cls_color,cls_zbuffer
+CameraFogColor camera,red#,green#,blue#
+CameraFogMode camera,mode
+CameraFogRange camera,near#,far#
+CameraPick ( camera,viewport_x#,viewport_y# )
+CameraProject camera,x#,y#,z#
+CameraProjMode camera,mode
+CameraRange camera,near#,far#
+CameraViewport camera,x,y,width,height
+CameraZoom camera,zoom#
+CaptureWorld 
+Case
+Ceil# ( float# )
+ChangeDir dir$
+ChannelPan channel,pan#
+ChannelPitch channel,pitch
+ChannelPlaying ( channel )
+ChannelVolume channel,volume#
+Chr$ ( ascii )
+ClearCollisions 
+ClearSurface surface[,clear_vertices][,clear_triangles]
+ClearTextureFilters 
+ClearWorld [entities][,brushes][,textures]
+CloseDir dir
+CloseFile file_stream
+CloseMovie movie
+CloseTCPServer tcp_server
+CloseTCPStream tcp_stream
+CloseUDPStream udp_stream
+Cls 
+ClsColor red,green,blue
+CollisionEntity ( entity,collision_index )
+CollisionNX# ( entity,collision_index )
+CollisionNY# ( entity,collision_index )
+CollisionNZ# ( entity,collision_index )
+Collisions source_type,destination_type,method,response
+CollisionSurface ( entity,collision_index )
+CollisionTime# ( entity,collision_index )
+CollisionTriangle ( entity,collision_index )
+CollisionX# ( entity,collision_index )
+CollisionY# ( entity,collision_index )
+CollisionZ# ( entity,collision_index )
+Color red,green,blue
+ColorBlue ( )
+ColorGreen ( )
+ColorRed ( )
+CommandLine$ ( )
+Const
+CopyBank src_bank,src_offset,dest_bank,dest_offset,count
+CopyEntity ( entity[,parent] )
+CopyFile file$,to$
+CopyImage ( image )
+CopyMesh ( mesh[,parent] )
+CopyPixel src_x,src_y,src_buffer,dest_x,dest_y[,dest_buffer]
+CopyPixelFast src_x,src_y,src_buffer,dest_x,dest_y[,dest_buffer]
+CopyRect source_x,source_y,width,height,dest_x,dest_y[,src_buffer][,dest_buffer]
+CopyStream src_stream,dest_stream[,buffer_size]
+Cos# ( degrees# )
+CountChildren ( entity )
+CountCollisions ( entity )
+CountGfxDrivers ( )
+CountGfxModes ( )
+CountGfxModes3D ( )
+CountHostIPs ( host_name$ )
+CountSurfaces ( mesh )
+CountTriangles ( surface )
+CountVertices ( surface )
+CreateBank ( [size] )
+CreateBrush ( [red#][,green#][,blue#] )
+CreateCamera ( [parent] )
+CreateCone ( [segments][,solid][,parent] )
+CreateCube ( [parent] )
+CreateCylinder ( [segments][,solid][,parent] )
+CreateDir dir$
+CreateImage ( width,height[,frames] )
+CreateLight ( [type][,parent] )
+CreateListener ( parent[,rolloff_factor#][,doppler_scale#][,distance_scale#] )
+CreateMesh ( [parent] )
+CreateMirror ( [parent] )
+CreateNetPlayer ( name$ )
+CreatePivot ( [parent] )
+CreatePlane ( [segments][,parent] )
+CreateSphere ( [segments][,parent] )
+CreateSprite ( [parent] )
+CreateSurface ( mesh[,brush] )
+CreateTCPServer ( port )
+CreateTerrain ( grid_size[,parent] )
+CreateTexture ( width,height[,flags][,frames] )
+CreateTimer ( hertz )
+CreateUDPStream ( [port] )
+CurrentDate$ ( )
+CurrentDir$ ( )
+CurrentTime$ ( )
+Data
+DebugLog text$
+Default
+Delay millisecs
+Delete
+DeleteDir dir$
+DeleteFile file$
+DeleteNetPlayer player
+DeltaPitch# ( src_entity,dest_entity )
+DeltaYaw# ( src_entity,dest_entity )
+Dim
+DirectInputEnabled ( )
+Dither enable
+DottedIP$ ( IP )
+DrawBlock image,x,y[,frame]
+DrawBlockRect image,x,y,rect_x,rect_y,rect_width,rect_height[,frame]
+DrawImage image,x,y[,frame]
+DrawImageRect image,x,y,rect_x,rect_y,rect_width,rect_height[,frame]
+DrawMovie ( movie[,x][,y][,w][,h] )
+Each
+Else
+ElseIf
+EmitSound ( sound,entity )
+EnableDirectInput enable
+End 
+EndGraphics 
+EndIf
+EntityAlpha entity,alpha#
+EntityAutoFade entity,near#,far#
+EntityBlend entity,blend
+EntityBox entity,x#,y#,z#,width#,height#,depth#
+EntityClass$ ( entity )
+EntityCollided ( entity,type )
+EntityColor entity,red#,green#,blue#
+EntityDistance# ( source_entity,destination_entity )
+EntityFX entity,fx
+EntityInView ( entity,camera )
+EntityName$ ( entity )
+EntityOrder entity,order
+EntityParent entity,parent[,global]
+EntityPick ( entity,range# )
+EntityPickMode entity,pick_geometry[,obscurer]
+EntityPitch# ( entity[,global] )
+EntityRadius entity,x_radius#[,y_radius#]
+EntityRoll# ( entity[,global] )
+EntityShininess entity,shininess#
+EntityTexture entity,texture[,frame][,index]
+EntityType entity,collision_type[,recursive]
+EntityVisible ( src_entity,dest_entity )
+EntityX# ( entity[,global] )
+EntityY# ( entity[,global] )
+EntityYaw# ( entity[,global] )
+EntityZ# ( entity[,global] )
+Eof ( stream )
+ExecFile command$
+Exit
+Exp# ( float# )
+ExtractAnimSeq ( entity,first_frame,last_frame[,anim_seq] )
+False
+Field
+FilePos ( file_stream )
+FileSize ( file$ )
+FileType ( file$ )
+FindChild ( entity,name$ )
+FindSurface ( mesh,brush )
+First
+FitMesh mesh,x#,y#,z#,width#,height#,depth#[,uniform]
+Flip [vwait]
+FlipMesh mesh
+Float
+Floor# ( float# )
+FlushJoy 
+FlushKeys 
+FlushMouse 
+FontHeight ( )
+FontWidth ( )
+For
+Forever
+FreeBank bank
+FreeBrush brush
+FreeEntity entity
+FreeFont font
+FreeImage image
+FreeSound sound
+FreeTexture texture
+FreeTimer timer
+FrontBuffer ( )
+Function
+GammaBlue# ( blue )
+GammaGreen# ( green )
+GammaRed# ( red )
+GetBrushTexture ( brush[,index] )
+GetChild ( entity,index )
+GetColor x,y
+GetEntityBrush ( entity )
+GetEntityType ( entity )
+GetEnv$ ( env_var$ )
+GetJoy ( [port] )
+GetKey ( )
+GetMatElement# ( entity,row,column )
+GetMouse ( )
+GetParent ( entity )
+GetSurface ( mesh,surface_index )
+GetSurfaceBrush ( surface )
+GfxDriver3D ( driver )
+GfxDriverCaps3D ( )
+GfxDriverName$ ( driver )
+GfxMode3D ( mode )
+GfxMode3DExists ( width,height,depth )
+GfxModeDepth ( mode )
+GfxModeExists ( width,height,depth )
+GfxModeHeight ( mode )
+GfxModeWidth ( mode )
+Global
+Gosub
+Goto
+GrabImage image,x,y[,frame]
+Graphics width,height[,depth][,mode]
+Graphics3D width,height[,depth][,mode]
+GraphicsBuffer ( )
+GraphicsDepth ( )
+GraphicsHeight ( )
+GraphicsWidth ( )
+Handle
+HandleImage image,x,y
+HandleSprite sprite,x_handle#,y_handle#
+Hex$ ( value )
+HideEntity entity
+HidePointer 
+HostIP ( host_index )
+HostNetGame ( game_name$ )
+HWMultiTex enable
+HWTexUnits ( )
+If
+ImageBuffer ( image[,frame] )
+ImageHeight ( image )
+ImageRectCollide ( image,x,y,frame,rect_x,rect_y,rect_width,rect_height )
+ImageRectOverlap ( image,x,y,rect_x,rect_y,rect_width,rect_height )
+ImagesCollide ( image1,x1,y1,frame1,image2,x2,y2,frame2 )
+ImagesOverlap ( image1,x1,y1,image2,x2,y2 )
+ImageWidth ( image )
+ImageXHandle ( image )
+ImageYHandle ( image )
+Include
+Input$ ( [prompt$] )
+Insert
+Instr ( string$,find$[,from] )
+Int
+JoinNetGame ( game_name$,ip_address$ )
+JoyDown ( button[,port] )
+JoyHat ( [port] )
+JoyHit ( button[,port] )
+JoyPitch# ( [port] )
+JoyRoll# ( [port] )
+JoyType ( [port] )
+JoyU# ( [port] )
+JoyUDir ( [port] )
+JoyV# ( [port] )
+JoyVDir ( [port] )
+JoyWait ( [port] )
+JoyX# ( [port] )
+JoyXDir ( [port] )
+JoyY# ( [port] )
+JoyYaw# ( [port] )
+JoyYDir ( [port] )
+JoyZ# ( [port] )
+JoyZDir ( [port] )
+KeyDown ( key )
+KeyHit ( key )
+Last
+Left$ ( string$,count )
+Len ( string$ )
+LightColor light,red#,green#,blue#
+LightConeAngles light,inner_angle#,outer_angle#
+LightMesh mesh,red#,green#,blue#[,range#][,x#][,y#][,z#]
+LightRange light,range#
+Line x1,y1,x2,y2
+LinePick ( x#,y#,z#,dx#,dy#,dz#[,radius#] )
+Load3DSound ( filename$ )
+LoadAnimImage ( bmpfile$,cellwidth,cellheight,first,count )
+LoadAnimMesh ( file$[,parent] )
+LoadAnimSeq ( entity,file$ )
+LoadAnimTexture ( file$,flags,width,height,first,count )
+LoadBrush ( file$[,texture_flags][,u_scale#][,v_scale#] )
+LoadBSP ( file$[,gamma_adj#][,parent] )
+LoadBuffer ( buffer,bmpfile$ )
+LoaderMatrix file_ext$,xx#,xy#,xz#,yx#,yy#,yz#,zx#,zy#,zz#
+LoadFont ( fontname$[,height][,bold][,italic][,underline] )
+LoadImage ( bmpfile$ )
+LoadMD2 ( file$[,parent] )
+LoadMesh ( file$[,parent] )
+LoadSound ( filename$ )
+LoadSprite ( file$[,texture_flags][,parent] )
+LoadTerrain ( heightmap_file$[,parent] )
+LoadTexture ( file$[,flags] )
+Local
+Locate x,y
+LockBuffer [buffer]
+Log# ( float# )
+Log10# ( float# )
+LoopSound sound
+Lower$ ( string$ )
+LSet$ ( string$,size )
+MaskImage image,red,green,blue
+MD2Animating ( md2 )
+MD2AnimLength ( md2 )
+MD2AnimTime# ( md2 )
+MeshDepth# ( mesh )
+MeshesIntersect ( mesh_a,mesh_b )
+MeshHeight# ( mesh )
+MeshWidth# ( mesh )
+Mid$ ( string$,start[,count] )
+MidHandle image
+MilliSecs ( )
+Mod
+ModifyTerrain terrain,terrain_x,terrain_z,height#[,realtime]
+MouseDown ( button )
+MouseHit ( button )
+MouseWait ( )
+MouseX ( )
+MouseXSpeed ( )
+MouseY ( )
+MouseYSpeed ( )
+MouseZ ( )
+MouseZSpeed ( )
+MoveEntity entity,x#,y#,z#
+MoveMouse x,y
+MovieHeight ( movie )
+MoviePlaying ( movie )
+MovieWidth ( movie )
+NameEntity entity,name$
+NetMsgData$ ( )
+NetMsgFrom ( )
+NetMsgTo ( )
+NetMsgType ( )
+NetPlayerLocal ( player )
+NetPlayerName$ ( player )
+New
+Next
+NextFile$ ( dir )
+Not
+Null
+Object
+OpenFile ( filename$ )
+OpenMovie ( file$ )
+OpenTCPStream ( server$,server_port[,local_port] )
+Or
+Origin x,y
+Oval x,y,width,height[,solid]
+PaintEntity entity,brush
+PaintMesh mesh,brush
+PaintSurface surface,brush
+PauseChannel channel
+PeekByte ( bank,offset )
+PeekFloat# ( bank,offset )
+PeekInt ( bank,offset )
+PeekShort ( bank,offset )
+Pi
+PickedEntity ( )
+PickedNX# ( )
+PickedNY# ( )
+PickedNZ# ( )
+PickedSurface ( )
+PickedTime# ( )
+PickedTriangle ( )
+PickedX# ( )
+PickedY# ( )
+PickedZ# ( )
+PlayCDTrack ( track[,mode] )
+PlayMusic ( midifile$ )
+PlaySound ( sound )
+Plot x,y
+PointEntity entity,target[,roll#]
+PokeByte bank,offset,value
+PokeFloat bank,offset,value#
+PokeInt bank,offset,value
+PokeShort bank,offset,value
+PositionEntity entity,x#,y#,z#[,global]
+PositionMesh mesh,x#,y#,z#
+PositionTexture texture,u_offset#,v_offset#
+Print [string$]
+ProjectedX# ( )
+ProjectedY# ( )
+ProjectedZ# ( )
+Rand ( from[,to] )
+Read
+ReadAvail ( stream )
+ReadByte ( stream )
+ReadBytes ( bank,file,offset,count )
+ReadDir ( dirname$ )
+ReadFile ( filename$ )
+ReadFloat# ( stream )
+ReadInt ( stream )
+ReadLine$ ( stream )
+ReadPixel ( x,y[,buffer] )
+ReadPixelFast ( x,y[,buffer] )
+ReadShort ( stream )
+ReadString$ ( stream )
+Rect x,y,width,height[,solid]
+RectsOverlap ( x1,y1,width1,height1,x2,y2,width2,height2 )
+RecvNetMsg ( )
+RecvUDPMsg ( udp_stream )
+RenderWorld [tween#]
+Repeat
+Replace$ ( string$,from$,to$ )
+ResetEntity entity
+ResizeBank bank,size
+ResizeImage image,width#,height#
+Restore
+ResumeChannel channel
+Return
+Right$ ( string$,count )
+Rnd# ( from#[,to#] )
+RndSeed ( )
+RotateEntity entity,pitch#,yaw#,roll#[,global]
+RotateImage image,angle#
+RotateMesh mesh,pitch#,yaw#,roll#
+RotateSprite sprite,angle#
+RotateTexture texture,angle#
+RSet$ ( string$,size )
+RuntimeError message$
+RuntimeStats 
+Sar
+SaveBuffer ( buffer,bmpfile$ )
+SaveImage ( image,bmpfile$[,frame] )
+ScaleEntity entity,x_scale#,y_scale#,z_scale#[,global]
+ScaleImage image,xscale#,yscale#
+ScaleMesh mesh,x_scale#,y_scale#,z_scale#
+ScaleSprite sprite,x_scale#,y_scale#
+ScaleTexture texture,u_scale#,v_scale#
+ScanLine ( )
+SeedRnd seed
+SeekFile ( file_stream,pos )
+Select
+SendNetMsg ( type,msg$,from_player[,to_player][,reliable] )
+SendUDPMsg udp_stream,dest_ip[,dest_port]
+SetAnimKey entity,frame[,pos_key][,rot_key][,scale_key]
+SetAnimTime entity,time#[,anim_seq]
+SetBuffer buffer
+SetCubeFace texture,face
+SetCubeMode texture,mode
+SetEnv env_var$,value$
+SetFont font
+SetGamma src_red,src_green,src_blue,dest_red#,dest_green#,dest_blue#
+SetGfxDriver driver
+Sgn
+Shl
+ShowEntity entity
+ShowPointer 
+Shr
+Sin# ( degrees# )
+SoundPan sound,pan#
+SoundPitch sound,pitch
+SoundVolume sound,volume#
+SpriteViewMode sprite,view_mode
+Sqr# ( float# )
+StartNetGame ( )
+Stats3D# ( type )
+Step
+Stop 
+StopChannel channel
+StopNetGame 
+Str
+String$ ( string$,repeat )
+StringHeight ( string$ )
+StringWidth ( string$ )
+SystemProperty$ ( property$ )
+Tan# ( degrees# )
+TCPStreamIP ( tcp_stream )
+TCPStreamPort ( tcp_stream )
+TCPTimeouts read_millis,accept_millis
+TerrainDetail terrain,detail_level[,morph]
+TerrainHeight# ( terrain,terrain_x,terrain_z )
+TerrainShading terrain,enable
+TerrainSize ( terrain )
+TerrainX# ( terrain,world_x#,world_y#,world_z# )
+TerrainY# ( terrain,world_x#,world_y#,world_z# )
+TerrainZ# ( terrain,world_x#,world_y#,world_z# )
+Text x,y,text$[,centre_x][,centre_y]
+TextureBlend texture,blend
+TextureBuffer ( texture[,frame] )
+TextureCoords texture,coords
+TextureFilter match_text$[,texture_flags]
+TextureHeight ( texture )
+TextureName$ ( texture )
+TextureWidth ( texture )
+TFormedX# ( )
+TFormedY# ( )
+TFormedZ# ( )
+TFormFilter enable
+TFormImage image,a#,b#,c#,d#
+TFormNormal x#,y#,z#,source_entity,dest_entity
+TFormPoint x#,y#,z#,source_entity,dest_entity
+TFormVector x#,y#,z#,source_entity,dest_entity
+Then
+TileBlock image[,x][,y][,frame]
+TileImage image[,x][,y][,frame]
+To
+TotalVidMem ( )
+TranslateEntity entity,x#,y#,z#[,global]
+TriangleVertex ( surface,index,vertex )
+Trim$ ( string$ )
+TrisRendered ( )
+True
+TurnEntity entity,pitch#,yaw#,roll#[,global]
+Type
+UDPMsgIP ( udp_stream )
+UDPMsgPort ( udp_stream )
+UDPStreamIP ( udp_stream )
+UDPStreamPort ( udp_stream )
+UDPTimeouts recv_timeout
+UnlockBuffer [buffer]
+Until
+UpdateGamma [calibrate]
+UpdateNormals mesh
+UpdateWorld [elapsed_time#]
+Upper$ ( string$ )
+VectorPitch# ( x#,y#,z# )
+VectorYaw# ( x#,y#,z# )
+VertexAlpha# ( surface,index )
+VertexBlue# ( surface,index )
+VertexColor surface,index,red#,green#,blue#[,alpha#]
+VertexCoords surface,index,x#,y#,z#
+VertexGreen# ( surface,index )
+VertexNormal surface,index,nx#,ny#,nz#
+VertexNX# ( surface,index )
+VertexNY# ( surface,index )
+VertexNZ# ( surface,index )
+VertexRed# ( surface,index )
+VertexTexCoords surface,index,u#,v#[,w#][,coord_set]
+VertexU# ( surface,index[,coord_set] )
+VertexV# ( surface,index[,coord_set] )
+VertexW# ( surface,index[,coord_set] )
+VertexX# ( surface,index )
+VertexY# ( surface,index )
+VertexZ# ( surface,index )
+Viewport x,y,width,height
+VWait [frames]
+WaitJoy ( [port] )
+WaitKey ( )
+WaitMouse ( )
+WaitTimer ( timer )
+WBuffer enable
+Wend
+While
+Windowed3D ( )
+WireFrame enable
+Write string$
+WriteByte stream,byte
+WriteBytes ( bank,file,offset,count )
+WriteFile ( filename$ )
+WriteFloat stream,float#
+WriteInt stream,int
+WriteLine stream,string$
+WritePixel x,y,argb[,buffer]
+WritePixelFast x,y,argb[,buffer]
+WriteShort stream,short
+WriteString stream,string$
+Xor

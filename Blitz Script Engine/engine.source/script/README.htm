@@ -1,0 +1,176 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="GENERATOR" content="Microsoft FrontPage Express 2.0">
+<title></title>
+<link rel="stylesheet" type="text/css" href="..\help.css" />
+</head>
+
+<body bgcolor="#FFFFFF" link="#0066CC"
+vlink="#0066CC" alink="#0066CC">
+<h1><font face="Courier New, Courier, mono">BlitzScript3D Engine </font><font size="4" face="Courier New, Courier, mono">by 
+  Frankie Taylor</font></h1>
+<blockquote>
+  <p><font face="Courier New, Courier, mono">Welcome to my BlitzScript3D Demo. 
+    This is by far my fastest and most flexible Scripting Engine, blazing at 1/4th 
+    the speed of Blitz itself. <em>Based on </em><a
+    href="http://www.blitzbasic.com/codearcs/codearcs.php?code=51"><em>Mark Sibly 
+    - Blitz Compiler Code</em></a>, BlitzScript3D Engine compiles a Scripts (*.bsc) 
+    with a Blitz3D-like Syntax to Pcode (*.bso) and executes on a Virtual Machine.</font></p>
+  <p><font face="Courier New, Courier, mono">This help file should provide enough 
+    information to launch the Demo. Detailed help and information on the operation 
+    of the BlitzScript3D Engine is soon to follow. If additional assistance is 
+    required please contact me via email <a href="mailto:frankie_taylor@hotmail.com">frankie_taylor@hotmail.com</a>. 
+    </font></p>
+</blockquote>
+<p><font face="Courier New, Courier, mono"><strong>Included Files:</strong></font></p>
+<blockquote> 
+  <ul>
+    <li><font face="Courier New, Courier, mono"><a href="bscvm.exe">bscvm.exe</a> 
+      or <a href="bscvm.bb">bscvm.bb</a> - Main Demo Program</font></li>
+    <li><font face="Courier New, Courier, mono"><a href="test.bsc">test.bsc</a> 
+      - BlitzScript3D File</font></li>
+    <li><font face="Courier New, Courier, mono">README.html - Demo Help</font></li>
+  </ul>
+</blockquote>
+<h3><font face="Courier New, Courier, mono"><b>How to Launch the Demo</b></font></h3>
+<blockquote> 
+  <p><font face="Courier New, Courier, mono">Execute <a
+    href="bscvm.exe">bscvm.exe</a> or <a href="bscvm.bb">bscvm.bb</a>. </font></p>
+  <p><font face="Courier New, Courier, mono">&lt;Esc&gt; - Stop Running Script<br>
+    &lt;R&gt; - Reload and Run Script<br>
+    &lt;X&gt; - Exit Demo</font></p>
+  <p><font face="Courier New, Courier, mono">Currrently, the Script is executed 
+    with each screen update. This can be controlled, however, has been omited 
+    for now. So keep this in mind when editing the test script.</font></p>
+  </blockquote>
+<h3><font face="Courier New, Courier, mono">How to Edit the Test.bsc Script File</font></h3>
+<blockquote> 
+  <p><font face="Courier New, Courier, mono">You can edit and save the test.bsc 
+    file, then reload and run the script. Your changes take effect instantly without 
+    recompiling Blitz. <strong>Currently, BlitzScript3D Compiler is limited and 
+    strict, but, advance functionality is to be added.</strong> Its syntax is 
+    very similar Blitz3D, however, it is missing many conveniences.</font></font></p>
+</blockquote>
+<p><font face="Courier New, Courier, mono" color="#009900" size="4"><strong>BlitzScript3D 
+  Supports:</strong></font></p>
+<blockquote> 
+  <p><font face="Courier New, Courier, mono">Keywords:</font></p>
+  <blockquote> 
+    <p><font face="Courier New, Courier, mono">let (optional)<br>
+      if... then....<br>
+      if... then....else</font></p>
+    <p><font face="Courier New, Courier, mono">Note: BlitzScript3D is case sensitive. 
+      Currently all keywords, variables, and commands are lower case! This is 
+      subject to change in the future.</font></p>
+  </blockquote>
+  <p><font face="Courier New, Courier, mono">Operators and Expressions:</font></p>
+</blockquote>
+<blockquote> 
+  <blockquote> 
+    <p><font face="Courier New, Courier, mono">Binary +, -, *, /, &lt;, &gt;, 
+      &lt;=, =&gt;, =, &lt;&gt;<br>
+      </font><font face="Courier New, Courier, mono">String @ or $+(string concenate), 
+      $* (string multiplier)<br>
+      String Compare </font><font face="Courier New, Courier, mono">$&lt;, $&gt;, 
+      $&lt;=, $=&gt;, =, &lt;&gt;<br>
+      Unary -,*,/,&lt;&lt;,&gt;&gt; have precedence over +, -,which have precendence 
+      over &lt;, &gt;, &lt;=, =&gt;, =, &lt;&gt;<br>
+      Parenthesis can be used to group subexpressions.</font></p>
+    </blockquote>
+  <p><font face="Courier New, Courier, mono">Variables:</font></p>
+  <blockquote> 
+    <p><font face="Courier New, Courier, mono">BlitzScript3D is virtually typeless 
+      handling values like a string or floats (integer values append a .0 ie: 
+      4.0, 23.0, 10000.0). Currently, all variables are <em>public</em> in scope, 
+      as functions are not supported yet. Variables labels can begin with A-Z 
+      or underscore '_' character and followed with alphanumeric or underscore 
+      characters.</font></p>
+    <p><font face="Courier New, Courier, mono">BlitzScriptVar</font></p>
+    <blockquote> 
+      <p><font face="Courier New, Courier, mono"> BlitzScript3D also features 
+        a special global array 'BlitzScriptVar' that can be assigned values and 
+        accessed in both script and application using the following commands:</font></p>
+      <p><font face="Courier New, Courier, mono">BlitzScriptVarSet(index,value)<br>
+        BlitzScriptVarGet(index)</font></p>
+      <p><font face="Courier New, Courier, mono">Examples</font></p>
+      <table width="85%" border="0" align="center" cellpadding="2" cellspacing="2" bgcolor="#CCCCCC" class="table1">
+        <tr align="left" valign="top"> 
+          <td width="87%"> <p>blitzscriptVarSet(1,&quot;Hello World&quot;)<br>
+              <br>
+              blitzscriptVarSet(25,450.0)</p>
+            <p>print(blitzscriptVarGet(2)</p></td>
+        </tr>
+      </table>
+    </blockquote>
+  </blockquote>
+  <p><font face="Courier New, Courier, mono">Blitz Commands</font></p>
+  <blockquote> 
+    <p><font face="Courier New, Courier, mono">Over 471 Blitz3D Commands are Supported, 
+      however, there are some slight differences.</font></p>
+    <blockquote> 
+      <p><font face="Courier New, Courier, mono">1) Parameter(s) must be enclosed 
+        within Parenthesis. Missing Parenthesis will result in error.</font></p>
+      <p><font face="Courier New, Courier, mono"><strong>Example: positionentity(camera,0,0,-3,0)</strong></font></p>
+      <p><font face="Courier New, Courier, mono">2) BlitzScript3D accounts for 
+        ALL Parameters of the Blitz Command, thus, you cannot omit a Default Parameters. 
+        Absense of any Parameters will result in error.</font></p>
+      <p><font face="Courier New, Courier, mono"><strong>Example: cone=createcone(8,1,0)</strong></font></font></p>
+    </blockquote>
+  </blockquote>
+  <p><font face="Courier New, Courier, mono">BlitzScript3D Commands</font></p>
+  <blockquote>
+    <p><font face="Courier New, Courier, mono">BlitzScript3D Commands are Hardcoded 
+      BlitzScript3D Functions. The same rules apply to them as with Blitz Commands.. 
+      There are few at this time...more to be added. A list of BlitzScript3D Commands 
+      will be developed as these commands are added.</font></p>
+  </blockquote>
+</blockquote>
+<p><font color="#FF0000" size="4" face="Courier New, Courier, mono"><strong>BlitzScript3D 
+  Does NOT Support:</strong></font></p>
+<blockquote> 
+  <p><font face="Courier New, Courier, mono">Arrays <em>(to be implemented)</em></font></p>
+  <p><font face="Courier New, Courier, mono">Types <em>(to be determined)</em></font></p>
+  <p><font face="Courier New, Courier, mono">Conditional Loops <em>(to be implemented)</em></font></p>
+  <p><font face="Courier New, Courier, mono">Advance Conditions<em> (to be implemented)</em></font></p>
+  <p><font face="Courier New, Courier, mono">Functions <em>(to be implemented)</em></font></p>
+</blockquote>
+<blockquote> 
+  <p><font face="Courier New, Courier, mono">Includes <em>(to be implemented)</em></font></p>
+  <blockquote> 
+    <p><font face="Courier New, Courier, mono">At the moment, the Scripting System 
+      can only parse and execute one BlitzScript3D Code File at a time<em> (multiple 
+      file support is to be determined, until then, consolidate needed scripts 
+      in one file)</em>. The BlitzScript3D Virtual Machine processing is currently 
+      limited to 256 scripts.</font></p>
+  </blockquote>
+  <p><font face="Courier New, Courier, mono">Tabs</font></p>
+  <blockquote> 
+    <p><font face="Courier New, Courier, mono">At the moment the BlitzScript3D 
+      Compiler will not recognize Tabs and results a in syntax error. Recommendation: 
+      Replace them with specified number of spaces. I'm working on a fix.</font></p>
+  </blockquote>
+  <p><font face="Courier New, Courier, mono">Remarks/Comments</font></p>
+  <blockquote>
+    <p><font face="Courier New, Courier, mono">BlitzScript3D will allow Single 
+      and Multi-line Remarks/Comments. Support is Coming Soon.</font></p>
+  </blockquote>
+</blockquote>
+<h3><font face="Courier New, Courier, mono"><b>How Does It Work?</b></font></h3>
+<blockquote> 
+  <p><font face="Courier New, Courier, mono">Scripts are stored in the *.bsc file. 
+    Upon loading the Engine will search for a compiled version of the file *.bso. 
+    If a compiled version is found its loaded, otherwise, its compiled then loaded.</font></p>
+  <p><font face="Courier New, Courier, mono">Once loaded. The Virtual Machine 
+    executes each script one after another per update loop. This behavior will 
+    be changed in the future.</font></p>
+</blockquote>
+<h3><font face="Courier New, Courier, mono"><strong>Credits</strong></font></h3>
+<blockquote> 
+  <p><font face="Courier New, Courier, mono"><a href="http://www.blitzbasic.com/codearcs/codearcs.php?code=51">Mark 
+    Sibly - Blitz Compiler Code</a> </font></font></p>
+</blockquote>
+</body>
+</html>

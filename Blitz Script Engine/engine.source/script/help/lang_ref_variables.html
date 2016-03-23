@@ -1,0 +1,59 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+
+<title>Language Reference - Variables</title>
+<link rel="stylesheet" href="lang_ref.css" type="text/css">
+</head>
+
+<body><br>
+&nbsp;<span class="Command">&nbsp;Variables&nbsp;</span><br>
+<blockquote> 
+  <p>BlitzScript is typeless. Variables and Values can contain string and numbers. 
+    For example: a=&quot;Hello World&quot;, b=1234.5 . Note: Integer values can 
+    be used, however, the Script Engine will only recognize them using a decimal 
+    point (ie: 12.0) when performing evaluation.</p>
+  <p class="header">Setting Variables</p>
+  <blockquote> 
+    <p>The '=' operator is used to assign a value to a variable. For example: 
+    </p>
+    <blockquote> 
+      <p> a=&quot;Hello World&quot;</p>
+      <p>b=1234.5</p>
+    </blockquote>
+  </blockquote>
+  <p>BlitzScriptVar</p>
+  <blockquote>
+    <p> BlitzScript3D also features a special global array 'BlitzScriptVar' that 
+      can be assigned values and accessed in both script and application using 
+      the following commands:</p>
+    <p>BlitzScriptVarSet(index,value)<br>
+      BlitzScriptVarGet(index)</p>
+    <p>Examples</p>
+    <table class="table1" width="85%" border="0" cellspacing="2" cellpadding="2" align="center">
+      <tr align="left" valign="top"> 
+        <td width="87%"> <p>blitzscriptvarset(1,&quot;Hello World&quot;)<br>
+            <br>
+            blitzscriptvarset(25,450.0)</p>
+          <p>print(blitzscriptvarget(2)</p>
+          </td>
+      </tr>
+    </table>
+    <p>BlitzScriptVar provides a simple mechanism to share data between the script 
+      and application directly. The current maximum number of BlitzScript Variables 
+      is 32, however, this value can be increased in the scripting engine source 
+      <a href="../bscvmVar.bb">bscvmVar.bb</a>.</p>
+    </blockquote>
+  <p> <span class="header">Variable Scope</span> </p>
+  <blockquote> 
+    <p>Variables are automatically scoped as '<b>public</b>', or '<b>private</b>' 
+      dependent on where they are declared. <b>Public </b>Variables are declared 
+      outside a function and can be used from anywhere in the program. <b>Private 
+      </b>Variables can only be used within the function they are created in.</p>
+    <p>&nbsp;</p>
+  </blockquote>
+</blockquote>
+</body>
+</html>

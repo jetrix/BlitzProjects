@@ -1,0 +1,20 @@
+r=Rnd(31,255)
+g=Rnd(31,255)
+b=Rnd(31,255)
+x=Rnd(-100,100)
+y=Rnd(-100,100)
+z=Rnd(0,100)
+w=Rnd(1,10)
+h=Rnd(1,10)
+l=Rnd(1,10)
+entity=CreateCube(0)
+ScaleEntity(entity,w,h,l)
+EntityShininess(entity,1) 
+EntityColor(entity,r,g,b)
+PositionEntity(entity,x,y,z)
+n=n+1
+xa=Cos(n) * 25
+ya=Sin(n)*25
+za=Cos(n) * 75
+PositionEntity(blitzscriptvarget(1),xa,ya,za,0)
+rotateentity(blitzscriptvarget(1),0,0,n,0)
